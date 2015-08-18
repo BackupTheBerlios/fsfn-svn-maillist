@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r44 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-January/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r44%20-%20trunk/fsfn/src&In-Reply-To=%3C200601211725.k0LHPb3m032700%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r44 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r44%20-%20trunk/fsfn/src&In-Reply-To=%3C200601211725.k0LHPb3m032700%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r44 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Sat Jan 21 18:25:37 CET 2006</I>
+    <P><UL>
+        
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#24">[ date ]</a>
+              <a href="thread.html#24">[ thread ]</a>
+              <a href="subject.html#24">[ subject ]</a>
+              <a href="author.html#24">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-01-21 18:25:36 +0100 (Sat, 21 Jan 2006)
+New Revision: 44
+
+Modified:
+   trunk/fsfn/src/basicmsg.c
+   trunk/fsfn/src/fsfn.c
+Log:
+Changed syslog to printf for queue error in client to avoid misunderstanding like Bug #6149.
+
+
+Modified: trunk/fsfn/src/basicmsg.c
+===================================================================
+--- trunk/fsfn/src/basicmsg.c	2005-12-23 14:39:27 UTC (rev 43)
++++ trunk/fsfn/src/basicmsg.c	2006-01-21 17:25:36 UTC (rev 44)
+@@ -92,16 +92,17 @@
+ {
+   if (msgqueue_id != -1)
+     {				/* no need */
+-      return 1;
++      return EXIT_SUCCESS;
+     }
+-  if ((msgqueue_id = msgget (genkey (), 0666)) == -1)
++  else if ((msgqueue_id = msgget (genkey (), 0666)) == -1)
+     {
+       syslog (LOG_CRIT,&quot;Cannot create IPC message queue: %m&quot;);
+-      syslog (LOG_NOTICE,&quot;fsfn client cannot find fsfn deamon:&quot;);
+-      syslog (LOG_NOTICE,&quot;Please be sure you first started fsfn as deamon.&quot;);
+-      syslog (LOG_NOTICE,&quot;(Note: To start deamon, run fsfn as root &quot;
+-	      &quot;without -o option.)&quot;);
+-      exit (-1);
++
++      fprintf(stderr,&quot;fsfn client cannot find fsfn deamon:\n&quot;);
++      fprintf(stderr,&quot;Please be sure you first started fsfn as deamon.\n&quot;);
++      fprintf(stderr,&quot;(Note: To start deamon, run fsfn as root &quot;
++	      &quot;without -o option.)\n&quot;);
++      return -1;
+     }
+   return EXIT_SUCCESS;
+ }
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-12-23 14:39:27 UTC (rev 43)
++++ trunk/fsfn/src/fsfn.c	2006-01-21 17:25:36 UTC (rev 44)
+@@ -315,24 +315,23 @@
+ 
+   osd_load ();
+ 
+-  loadqueue ();
++  if (loadqueue ()!=-1) {
++	while (1 == 1) {
++		  
++		  if (getmsg (&amp;flag, &amp;brightness, &amp;sound)==-1) {
++			break; // exit the loop if problems
++          }
+ 
+-  while (1 == 1)
+-    {
+-      if (getmsg (&amp;flag, &amp;brightness, &amp;sound)==-1) {
+-      	break; // exit the loop if problems
+-      }
++		  if (flag &amp; MOD_BRIGHTNESS) {
++	        osd_brightness (brightness);
++	      }
++          
++		  if (flag &amp; MOD_SOUND) {
++			osd_volume (sound);
++		  }
++    }// while 1
++  }
+ 
+-      if (flag &amp; MOD_BRIGHTNESS)
+-	{
+-	  osd_brightness (brightness);
+-	}
+-      if (flag &amp; MOD_SOUND)
+-	{
+-	  osd_volume (sound);
+-	}
+-    }
+-
+   osd_unload ();
+ }
+ #endif
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#24">[ date ]</a>
+              <a href="thread.html#24">[ thread ]</a>
+              <a href="subject.html#24">[ subject ]</a>
+              <a href="author.html#24">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r53 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-September/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r53%20-%20trunk/fsfn/src&In-Reply-To=%3C200609230937.k8N9blmX028321%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r53 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r53%20-%20trunk/fsfn/src&In-Reply-To=%3C200609230937.k8N9blmX028321%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r53 - trunk/fsfn/src">muaddib at mail.berlios.de
+       </A><BR>
+    <I>Sat Sep 23 11:37:47 CEST 2006</I>
+    <P><UL>
+        
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#33">[ date ]</a>
+              <a href="thread.html#33">[ thread ]</a>
+              <a href="subject.html#33">[ subject ]</a>
+              <a href="author.html#33">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-09-23 11:37:47 +0200 (Sat, 23 Sep 2006)
+New Revision: 53
+
+Modified:
+   trunk/fsfn/src/fsfn.c
+Log:
+Changed execv to system
+
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2006-07-08 15:52:37 UTC (rev 52)
++++ trunk/fsfn/src/fsfn.c	2006-09-23 09:37:47 UTC (rev 53)
+@@ -74,14 +74,13 @@
+ 	buffer=getConfig(key);
+ 	
+ 	if ((buffer)&amp;&amp;(buffer[0]!='\0')) {
+-		syslog(LOG_NOTICE,&quot;Executing [%s]&quot;,buffer);
+ 	 	if (fork () == 0)
+ 		{
+-		    if (execv (buffer, NULL) == -1)
+-		    {
+-		      syslog (LOG_NOTICE,&quot;Cannot run [%s]: %m&quot;,buffer);
+-		      exit(0);
+-		    }
++		     syslog(LOG_NOTICE,&quot;Executing [%s] - start&quot;,buffer);
++		     if (system (buffer) == -1)
++			 syslog (LOG_NOTICE,&quot;Cannot run [%s]: %m&quot;,buffer);
++		     syslog(LOG_NOTICE,&quot;Executing [%s] - end&quot;,buffer);
++		     exit(0);
+ 		}
+ 		return 1;
+ 	}
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#33">[ date ]</a>
+              <a href="thread.html#33">[ thread ]</a>
+              <a href="subject.html#33">[ subject ]</a>
+              <a href="author.html#33">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

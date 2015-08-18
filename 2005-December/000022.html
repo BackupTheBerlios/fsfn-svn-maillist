@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-December/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r42%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn/gentoo&In-Reply-To=%3C200512220056.jBM0uqkV028730%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000021.html">
+   <LINK REL="Next"  HREF="000023.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r42%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn/gentoo&In-Reply-To=%3C200512220056.jBM0uqkV028730%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo">muaddib at berlios.de
+       </A><BR>
+    <I>Thu Dec 22 01:56:52 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000021.html">[Fsfn-svn] r41 - trunk/fsfn/src
+</A></li>
+        <LI>Next message: <A HREF="000023.html">[Fsfn-svn] r43 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/debian fsfn/fedora fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#22">[ date ]</a>
+              <a href="thread.html#22">[ thread ]</a>
+              <a href="subject.html#22">[ subject ]</a>
+              <a href="author.html#22">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-12-22 01:56:13 +0100 (Thu, 22 Dec 2005)
+New Revision: 42
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild
+Modified:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+   trunk/fsfn/gentoo/fsfn
+Log:
+Correction for bug 5951
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild	2005-12-22 00:56:13 UTC (rev 42)
+@@ -0,0 +1,54 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION=&quot;Sony Vaio (FS series) laptop hotkey handler&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://download.berlios.de/fsfn/${P">http://download.berlios.de/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;xosd&quot;
++
++DEPEND=&quot;
++	xosd? ( &gt;=x11-libs/xosd-2.2.0 )
++	&gt;=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++&quot;
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}
++	
++	# fix dir for bug 5951
++	sed -i \
++		-e &quot;s:/usr/local/bin:/usr/bin:g&quot; \
++		${S}/gentoo/fsfn
++}
++
++src_compile () {
++	use xosd || my_conf=&quot;${my_conf} --disable-xosd&quot;
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo &quot;xosd support built in&quot;
++		einfo &quot;To enable it, please add 'fsfn -o' to your x session&quot;
++		einfo
++	fi
++
++	econf ${my_conf} || die &quot;configuration failed&quot;
++
++	emake || die &quot;make of fsfn failed&quot;
++}
++
++src_install() {
++	make DESTDIR=&quot;${D}&quot; install || die &quot;Installation failed!&quot;
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo &quot;You can use /etc/init.d/fsfn script to start fsfn&quot;
++	einfo
++}
+
+Modified: trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-22 00:56:13 UTC (rev 42)
+@@ -32,7 +32,7 @@
+ 		einfo
+ 	fi
+ 
+-	./configure ${my_conf} || die &quot;configuration failed&quot;
++	econf ${my_conf} || die &quot;configuration failed&quot;
+ 
+ 	emake || die &quot;make of fsfn failed&quot;
+ }
+
+Modified: trunk/fsfn/gentoo/fsfn
+===================================================================
+--- trunk/fsfn/gentoo/fsfn	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/fsfn/gentoo/fsfn	2005-12-22 00:56:13 UTC (rev 42)
+@@ -20,7 +20,7 @@
+ 	start-stop-daemon --start \
+ 		--nicelevel 10 \
+ 		--pidfile /var/run/fsfn.pid \
+-		-x &quot;/usr/local/bin/fsfn&quot;
++		-x &quot;/usr/bin/fsfn&quot;
+ 	eend $?
+ }
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000021.html">[Fsfn-svn] r41 - trunk/fsfn/src
+</A></li>
+	<LI>Next message: <A HREF="000023.html">[Fsfn-svn] r43 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/debian fsfn/fedora fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#22">[ date ]</a>
+              <a href="thread.html#22">[ thread ]</a>
+              <a href="subject.html#22">[ subject ]</a>
+              <a href="author.html#22">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

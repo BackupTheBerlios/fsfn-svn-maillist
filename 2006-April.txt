@@ -1,0 +1,1248 @@
+From muaddib at berlios.de  Sat Apr 15 14:08:21 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Sat, 15 Apr 2006 14:08:21 +0200
+Subject: [Fsfn-svn] r46 - trunk/fsfn/src
+Message-ID: <200604151208.k3FC8Law013275@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-04-15 14:08:10 +0200 (Sat, 15 Apr 2006)
+New Revision: 46
+
+Modified:
+   trunk/fsfn/src/basicmsg.c
+   trunk/fsfn/src/basicmsg.h
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/readconfig.c
+   trunk/fsfn/src/readconfig.h
+Log:
+Added code to allow OSD to have a "by user" config and handle commands. 
+The additional conf file is ~/.fsfn.conf (only for OSD). 
+After loading, the OSD client will read this file and overwrite duplicates. 
+
+The command handling code should work this way:
+1. daemon decodes keys
+2. Check the /etc/fsfn.conf for a command to execute
+3. If found, daemon executes and that's all
+4. Not found ? send a message to OSD client with key pressed
+5. OSD client check config and exec if possible the action.
+(point 5 is working since OSD overwrite duplicates)
+
+NOTE: 
+* If no cmd for Brigthness/volume in main config, DAEMON will execute the changes and send a cmd to client too. OSD will show up and executes a possible command too (not that logical huh... but OSD cmd are separated from screen output)
+
+In short: OSD executes something ONLY if no root action are set in config..
+
+
+
+Modified: trunk/fsfn/src/basicmsg.c
+===================================================================
+--- trunk/fsfn/src/basicmsg.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/basicmsg.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -32,6 +32,8 @@
+ 
+ /* Message def */
+ #define MSG_TYPE_INFO	1
++#define MSG_TYPE_CMD    2
++
+ struct infodata
+ {
+   int flag;			/* flag - contains modification flag */
+@@ -41,10 +43,16 @@
+ 
+ struct basicmsg
+ {
+-  long mtype;			/* type of the message - currently only one */
++  long mtype;			/* type of the message */
+   struct infodata data;		/* link to struc containing data */
+ };
+ 
++struct cmdmsg
++{
++  long mtype;			/* type of the message */
++  int  cmd_code;		/* command code */
++};
++
+ /* helpers code */
+ 
+ /* Generate a key if needed */
+@@ -155,3 +163,37 @@
+ 
+   return EXIT_SUCCESS;
+ }
++
++int
++sendcmd(int cmd)
++{
++  struct cmdmsg msg;
++  
++  msg.mtype = MSG_TYPE_CMD;
++  msg.cmd_code = cmd;
++
++  if ((msgsnd(msgqueue_id, (const void*) &msg,
++	      sizeof(int), 0)) == -1)
++    {
++      syslog (LOG_CRIT,"Failed to send message: %m");
++      exit(-1);
++    }
++  return EXIT_SUCCESS;
++}
++
++int 
++getcmd(int* cmd)
++{
++  struct cmdmsg msg;
++  
++  msg.mtype = MSG_TYPE_CMD;
++  if (msgrcv(msgqueue_id, (void*) &msg,
++	     sizeof (struct infodata), MSG_TYPE_CMD, 0) == -1)
++    {
++      syslog (LOG_NOTICE,"Failed to get message: %m");
++      return -1;
++    }
++  *cmd = msg.cmd_code;
++  
++  return EXIT_SUCCESS;
++}
+
+Modified: trunk/fsfn/src/basicmsg.h
+===================================================================
+--- trunk/fsfn/src/basicmsg.h	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/basicmsg.h	2006-04-15 12:08:10 UTC (rev 46)
+@@ -30,5 +30,7 @@
+ int sendmsg(int flag,int brightness_level,int sound_level);
+ int getmsg(int* flag,int* brightness_level,int* sound_level);
+ 
++int sendcmd(int cmd);
++int getcmd(int* cmd);
+ 
+ #endif
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/fsfn.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -220,6 +220,7 @@
+ 	      		flag = MOD_BRIGHTNESS;
+ 	      		brightness = setBrightness (getBrightness () - 1);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd (FN_F5);
+ #else
+ 	      		setBrightness (getBrightness () - 1);
+ #endif
+@@ -236,6 +237,7 @@
+ 	      		flag = MOD_BRIGHTNESS;
+ 	      		brightness = setBrightness (getBrightness () + 1);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd (FN_F6);
+ #else
+ 	      		setBrightness (getBrightness () + 1);
+ #endif
+@@ -251,6 +253,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = mute (SOUND_STEP);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F2);
+ #else
+ 	      		mute (SOUND_STEP);			
+ #endif
+@@ -264,6 +267,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = volume_down (SOUND_STEP);	//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F3);
+ #else
+ 	      		volume_down (SOUND_STEP);
+ #endif
+@@ -277,6 +281,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = volume_up (SOUND_STEP);		//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F4);
+ #else
+ 	      		volume_up (SOUND_STEP);
+ #endif
+@@ -285,23 +290,48 @@
+ 	 /* NO built in commands */
+ 	  if ((key & FN_F7) == FN_F7)
+ 	    {
+-		  checkConfig("F7_CMD");
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig("F7_CMD"))
++		sendcmd(FN_F7);
++#else
++	      sendcmd(FN_F7);
++#endif
+ 	    }
+ 	  if ((key & FN_F10) == FN_F10)
+ 	    {
+-		  checkConfig("F10_CMD");
++#ifdef HAVE_LIBXOSD
++	      if(!checkConfig("F10_CMD"))
++		sendcmd(FN_F10);
++#else
++	      sendcmd(FN_F10);
++#endif
+ 	    }
+ 	  if ((key & FN_F12) == FN_F12)
+ 	    {
+-		 checkConfig("F12_CMD");
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig("F12_CMD"))
++		sendcmd(FN_F12);
++#else
++	      checkConfig("F12_CMD");
++#endif
+ 	    }
+ 	  if (( key & S1_BTN) == S1_BTN) 
+ 	    {
+-		 checkConfig("S1_CMD");
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig("S1_CMD"))
++		sendcmd(S1_BTN);
++#else
++	      checkConfig("S1_CMD");
++#endif
+ 	    }
+ 	  if (( key & S2_BTN) == S2_BTN)
+ 	    {
+-		 checkConfig("S2_CMD");
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig("S2_CMD"))
++		sendcmd(S2_BTN);
++#else
++	      checkConfig("S2_CMD");
++#endif
+ 	    }		  
+ 	}
+     }// while
+@@ -309,26 +339,66 @@
+ 
+ #ifdef HAVE_LIBXOSD
+ void
++loopcmd()
++{
++  int cmd;
++  if (loadqueue ()!=-1) {
++    while (1 == 1) {
++      if (getcmd(&cmd)==-1) {
++	break;
++      }
++      
++      switch(cmd) {
++      case FN_F5: checkConfig("F5_CMD"); break;
++      case FN_F6: checkConfig("F6_CMD"); break;
++      case FN_F2: checkConfig("F2_CMD"); break;
++      case FN_F3: checkConfig("F3_CMD"); break;
++      case FN_F4: checkConfig("F4_CMD"); break;
++      case FN_F7: checkConfig("F7_CMD"); break;
++      case FN_F10:checkConfig("F10_CMD"); break;
++      case FN_F12:checkConfig("F12_CMD"); break;
++      case S1_BTN:checkConfig("S1_CMD"); break;
++      case S2_BTN:checkConfig("S2_CMD"); break;
++      default:
++	syslog(LOG_INFO,"Unknow cmd send: %d\n",cmd);
++	break;
++      }
++      
++    }
++  }
++}
++  
++
++void
+ looposd ()
+ {
+   int flag = 0, brightness = 0, sound = 0;
+ 
++  /* Load user def */
++  loadUserConfig();
++
++  /* Fork OSD to loop on cmd msg */
++  if (fork()==0) {
++    loopcmd();
++    exit(0);
++  }
++
+   osd_load ();
+ 
+   if (loadqueue ()!=-1) {
+-	while (1 == 1) {
++    while (1 == 1) {
+ 		  
+-		  if (getmsg (&flag, &brightness, &sound)==-1) {
+-			break; // exit the loop if problems
+-          }
++      if (getmsg (&flag, &brightness, &sound)==-1) {
++	break; // exit the loop if problems
++      }
+ 
+-		  if (flag & MOD_BRIGHTNESS) {
+-	        osd_brightness (brightness);
+-	      }
++      if (flag & MOD_BRIGHTNESS) {
++	osd_brightness (brightness);
++      }
+           
+-		  if (flag & MOD_SOUND) {
+-			osd_volume (sound);
+-		  }
++      if (flag & MOD_SOUND) {
++	osd_volume (sound);
++      }
+     }// while 1
+   }
+ 
+@@ -545,7 +615,7 @@
+ shut down fsfn(1) before suspending and start it after wake up.  This
+ will have the effect of stopping the fsfn(1) client, if it is running.
+ 
+-=item F</etc/fsfn.conf>
++=item F</etc/fsfn.conf>, F<~/.fsfn.conf> (only OSD)
+ 
+ The fsfn(1) program reads various parameters from this file when it
+ starts up as a daemon or as a client.  See L<fsfn(5)> for the format
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/fsfn.pod	2006-04-15 12:08:10 UTC (rev 46)
+@@ -28,13 +28,17 @@
+ 
+ =head1 SYNOPSIS
+ 
+-F</etc/fsfn.conf>
++F</etc/fsfn.conf> , F<~/.fsfn.conf> (only OSD client)
+ 
+ =head1 DESCRIPTION
+ 
+ fsfn(1) reads configuration data from F</etc/fsfn.conf>. The file
+ contains keyword-argument pairs, one per line.  Lines starting with
+-`#' and empty lines are interpreted as comments.
++`#' and empty lines are interpreted as comments. The OSD client will 
++also read informations from F<~/.fsfn.conf> and overwrites duplicates.
++OSD client will be notice of actions only if daemon is not configured 
++to handle it. 
++E.g: If you want a "user space" action, set it ONLY in F<~/.fsfn.conf>  
+ 
+ =head1 FORMAT
+ 
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/readconfig.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -276,29 +276,18 @@
+ 
+ // keep track of config loading state
+ int _config_loaded=0;
+-// load
+-void loadConfig() {
++// load config helper
++void loadConfigSub(char* filename) {
+ 	FILE*	configFile;
+ 	char	buffer[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 	char 	name[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 	char	value[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 
+-	// load if needed
+-	if (_config_loaded) 
+-		return;
+-	// release previous config
+-	releaseConfig();
++	syslog(LOG_INFO,"Loading config file %s",filename);
+ 
+-	_config_loaded=1; // set status as loaded
+-
+-	syslog(LOG_INFO,"Loading config file %s",USER_CONFIG_FILE);
+-	
+-	// set default values
+-	setDefConfig();	
+-
+ 	// read
+-	if ((configFile=fopen(USER_CONFIG_FILE,"r"))==NULL) {
+-		syslog(LOG_NOTICE,"error opening config file");
++	if ((configFile=fopen(filename,"r"))==NULL) {
++		syslog(LOG_NOTICE,"error opening config file: %m");
+ 		return;
+ 	}
+ 	while(fgets(buffer,255,configFile)!=NULL) {
+@@ -333,6 +322,33 @@
+ 	fclose(configFile);
+ }
+ 
++void loadConfig() {
++  if (_config_loaded) // load if needed
++    return;
++  releaseConfig(); // release previous config
++  setDefConfig(); // load default
++  loadConfigSub(MAIN_CONFIG_FILE);
++  _config_loaded=1;
++}
++
++void loadUserConfig() {
++  char* path;
++  int maxsize=strlen(getenv("HOME"))+1+strlen(USER_CONFIG_FILE)+1+1; // get needed string size = $HOME+/+USER_CONFIG_FILE
++
++  /* Create full path name to user config*/
++  path=(char*) malloc(maxsize);
++  strncpy(path,getenv("HOME"),maxsize);
++  strncat(path,"/",maxsize);
++  strncat(path,USER_CONFIG_FILE,maxsize);
++  
++  if (!_config_loaded) /* previous config not yet loaded */
++    loadConfig(); /* load it then */
++  loadConfigSub(path);
++
++  /* free used pointer */
++  free(path);
++}
++
+ // release 
+ void releaseConfig() {
+ 	struct config_entry* it;
+
+Modified: trunk/fsfn/src/readconfig.h
+===================================================================
+--- trunk/fsfn/src/readconfig.h	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/readconfig.h	2006-04-15 12:08:10 UTC (rev 46)
+@@ -22,6 +22,7 @@
+ //#include <config.h>
+ 
+ void loadConfig();
++void loadUserConfig();
+ void releaseConfig();
+ 
+ char* getConfig(char*);
+@@ -30,7 +31,7 @@
+ 
+ int   setConfig(char* key,char* value); // set a config
+ 
+-#define USER_CONFIG_FILE	"/etc/fsfn.conf"
++#define MAIN_CONFIG_FILE	"/etc/fsfn.conf"
++#define USER_CONFIG_FILE        ".fsfn.conf"
+ 
+-
+ #endif
+
+
+
+From muaddib at berlios.de  Sat Apr 15 18:02:54 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Sat, 15 Apr 2006 18:02:54 +0200
+Subject: [Fsfn-svn] r47 - in trunk/fsfn: . src
+Message-ID: <200604151602.k3FG2sup000823@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-04-15 18:02:53 +0200 (Sat, 15 Apr 2006)
+New Revision: 47
+
+Modified:
+   trunk/fsfn/config.h.in
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/generics.h
+   trunk/fsfn/src/readconfig.c
+Log:
+Added --enable-moreconf to configure. This flag create a fsfn who can read additional parameters in /etc/fsfn.conf such as keycode, fn code to handle different laptop (cf patch #999). 
+Since I believe these changes will create higher CPU usage,  I disabled it by default. 
+I guess this version should be tested and a new "public" release should be made if everything go smooth ... (=I implemented what I wanted to do)
+
+
+
+Modified: trunk/fsfn/config.h.in
+===================================================================
+--- trunk/fsfn/config.h.in	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/config.h.in	2006-04-15 16:02:53 UTC (rev 47)
+@@ -82,6 +82,9 @@
+ /* Define to 1 if you have the ANSI C header files. */
+ #undef STDC_HEADERS
+ 
++/* Use advanced configuration settings */
++#undef USE_MORECONF
++
+ /* Version number of package */
+ #undef VERSION
+ 
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/configure	2006-04-15 16:02:53 UTC (rev 47)
+@@ -846,6 +846,7 @@
+   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+   --disable-xosd          Do not try to test for libxosd
++  --enable-moreconf       Enable more configurations
+   --disable-dependency-tracking  speeds up one-time build
+   --enable-dependency-tracking   do not reject slow dependency extractors
+   --disable-alsatest      Do not try to compile and run a test Alsa program
+@@ -1754,6 +1755,13 @@
+ else
+   enable_xosd=yes
+ fi;
++# Check whether --enable-moreconf or --disable-moreconf was given.
++if test "${enable_moreconf+set}" = set; then
++  enableval="$enable_moreconf"
++  enable_moreconf=yes
++else
++  enable_moreconf=no
++fi;
+ 
+ ac_ext=c
+ ac_cpp='$CPP $CPPFLAGS'
+@@ -5121,6 +5129,22 @@
+ 
+ fi
+ 
++#more conf
++echo "$as_me:$LINENO: checking if advanced configuration is required" >&5
++echo $ECHO_N "checking if advanced configuration is required... $ECHO_C" >&6
++if test "x$enable_moreconf" = "xyes"; then
++
++cat >>confdefs.h <<\_ACEOF
++#define USE_MORECONF
++_ACEOF
++
++   echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6
++else
++   echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++fi
++
+ # Checks for pod2man
+ # Extract the first word of "pod2man", so it can be a program name with args.
+ set dummy pod2man; ac_word=$2
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/configure.in	2006-04-15 16:02:53 UTC (rev 47)
+@@ -10,6 +10,11 @@
+ 	      [  --disable-xosd          Do not try to test for libxosd],
+ 	      enable_xosd=no,
+ 	      enable_xosd=yes)
++dnl moreconf
++AC_ARG_ENABLE(moreconf,
++	      [  --enable-moreconf       Enable more configurations],
++	      enable_moreconf=yes,
++	      enable_moreconf=no)
+ 
+ dnl Default checks
+ AC_LANG([C])
+@@ -34,6 +39,15 @@
+   AM_CHECK_LIBXOSD
+ fi
+ 
++#more conf
++AC_MSG_CHECKING([if advanced configuration is required])
++if test "x$enable_moreconf" = "xyes"; then
++   AC_DEFINE(USE_MORECONF,[],[Use advanced configuration settings])
++   AC_MSG_RESULT([yes])
++else
++   AC_MSG_RESULT([no])
++fi
++
+ # Checks for pod2man
+ AC_PATH_PROG(POD2MAN,  pod2man, :)
+ if test "$POD2MAN" = ":"; then
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/src/fsfn.c	2006-04-15 16:02:53 UTC (rev 47)
+@@ -36,13 +36,13 @@
+ // input thing
+ #include <linux/input.h>
+ 
++// config
++#include "readconfig.h"
++
+ #include "generics.h"
+ #include "acpihandler.h"
+ #include "alsasound.h"
+ 
+-// config
+-#include "readconfig.h"
+-
+ // autodev
+ #include "autodev.h"
+ 
+@@ -347,7 +347,19 @@
+       if (getcmd(&cmd)==-1) {
+ 	break;
+       }
+-      
++#ifdef USE_MORECONF      
++      if (cmd==FN_F5)	    checkConfig("F5_CMD");
++      else if (cmd==FN_F6) checkConfig("F6_CMD");
++      else if (cmd==FN_F2)  checkConfig("F2_CMD");
++      else if (cmd==FN_F3)  checkConfig("F3_CMD");
++      else if (cmd==FN_F4)  checkConfig("F4_CMD"); 
++      else if (cmd==FN_F7)  checkConfig("F7_CMD");
++      else if (cmd==FN_F10) checkConfig("F10_CMD");
++      else if (cmd==FN_F12) checkConfig("F12_CMD");
++      else if (cmd==S1_BTN) checkConfig("S1_CMD");
++      else if (cmd==S2_BTN) checkConfig("S2_CMD");
++      else syslog(LOG_INFO,"Unknow cmd send: %d\n",cmd); 
++#else
+       switch(cmd) {
+       case FN_F5: checkConfig("F5_CMD"); break;
+       case FN_F6: checkConfig("F6_CMD"); break;
+@@ -363,7 +375,7 @@
+ 	syslog(LOG_INFO,"Unknow cmd send: %d\n",cmd);
+ 	break;
+       }
+-      
++#endif
+     }
+   }
+ }
+@@ -457,7 +469,10 @@
+     ("\t-d, --device=inputdevice\tUse given device to handle fn keys, default: /dev/input/event0\n");
+ #ifdef HAVE_LIBXOSD
+   printf ("\t-o, --osd\t\t\tStart as OSD deamon client\n");
++#ifdef USE_MORECONF
++  printf ("(MORECONF enabled)\n");
+ #endif
++#endif
+ }
+ 
+ 
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/src/fsfn.pod	2006-04-15 16:02:53 UTC (rev 47)
+@@ -207,6 +207,16 @@
+ 
+ Default: 0
+ 
++=item B<FN_F2>,B<FN_F3>,B<FN_F4>,B<FN_F5>,B<FN_F6>,B<FN_F7>,B<FN_F10>,B<FN_F12>,B<S1_BTN>,B<S2_BTN>,B<FN_INPUT_VALUE>,B<FN_INPUT_TYPE>,B<FN_INPUT_CODE>
++
++(Only if fsfn was compiled with B<--enable-moreconf> configure flag)
++These items allows redefinition of keycodes used by fsfn to handle FN+keys on some newer Vaio laptops. 
++These options should B<NOT> be used unless the laptop is B<NOT> supported out of the box by fsfn. 
++
++Example: the B<Vaio VGN-FJ170/B> needs the following entries:
++FN_F10=1024
++FN_INPUT_VALUE=246
++
+ =back
+ 
+ =head1 EXAMPLE
+
+Modified: trunk/fsfn/src/generics.h
+===================================================================
+--- trunk/fsfn/src/generics.h	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/src/generics.h	2006-04-15 16:02:53 UTC (rev 47)
+@@ -19,7 +19,35 @@
+  ***************************************************************************/
+ 
+ #ifndef _GENERIC_H_
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#ifdef USE_MORECONF
++/* Allows redef of keycode */
++#include "readconfig.h"
+ // keys 
++#define  FN_F2	getConfigInt("FN_F2")  // def 1 - cut sound
++#define  FN_F3  getConfigInt("FN_F3")  // def 2 - volume -
++#define  FN_F4  getConfigInt("FN_F4")  // def 4 - volume +
++#define  FN_F5	getConfigInt("FN_F5")  // def 8 - Brightness -
++#define  FN_F6	getConfigInt("FN_F6")  // def 16 -  Brightness +
++#define  FN_F7  getConfigInt("FN_F7")  // def 32 - LCD/SCREEN
++#define  FN_F10 getConfigInt("FN_F10") // def 128 - Zoom in
++#define	 FN_F12 getConfigInt("FN_F12") // def 64 - Suspend
++#define  S2_BTN getConfigInt("S2_BTN") // def 4096 - S1 custom button
++#define	 S1_BTN getConfigInt("S1_BTN") // def 8192 - S2 custom button
++
++#define  FN_INPUT_VALUE	getConfigInt("FN_INPUT_VALUE") // def 245 - Fn key generate a 245 value
++#define  FN_INPUT_TYPE	getConfigInt("FN_INPUT_TYPE")  // def 4 - a 4 type
++#define  FN_INPUT_CODE	getConfigInt("FN_INPUT_CODE")  // def 4 - a 4 code
++
++
++#else // don't use MORE CONFIG...
++
++
++// keys 
+ #define  FN_F2	1		// cut sound
+ #define  FN_F3  2		// volume -
+ #define  FN_F4  4		// volume +
+@@ -35,6 +63,10 @@
+ #define  FN_INPUT_TYPE	4	// a 4 type
+ #define  FN_INPUT_CODE	4	// and a 4 code
+ 
++
++#endif
++
++
+ // for readconfig
+ #define MAX_CFG_LENGTH		255
+ #define MAX_CFG_NAME_LENGTH 	20
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2006-04-15 12:08:10 UTC (rev 46)
++++ trunk/fsfn/src/readconfig.c	2006-04-15 16:02:53 UTC (rev 47)
+@@ -32,132 +32,205 @@
+ #include "generics.h"
+ 
+ struct config_entry {
+-	char* name;
+-	char* value;
+-	int*  ivalue; // to hold possible int 
++  char* name;
++  char* value;
++  int*  ivalue; // to hold possible int 
+ } config_list[] = 
+-{
+-	// keys
+-	{
+-		.name = "F2_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F3_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F4_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F5_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F6_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F7_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F10_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "F12_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "S1_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "S2_CMD",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	// OSD
+-	{
+-		.name = "OSD_FONT",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_VCOLOR",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_VCOLORZ",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_BCOLOR",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_TIMEOUT",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_MSG_BRIGHT",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "OSD_MSG_VOLUME",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
++  {
++#ifdef USE_MORECONF
++    // keys definition
++    {
++      .name = "FN_INPUT_VALUE",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_INPUT_TYPE",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_INPUT_CODE",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_INPUT_VALUE",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F2",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F3",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F4",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F5",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F6",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F7",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F10",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "FN_F12",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "S1_BTN",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = "S2_BTN",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++#endif
++    // keys action
++    {
++      .name = "F2_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F3_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F4_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F5_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F6_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F7_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F10_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "F12_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "S1_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "S2_CMD",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    // OSD
++    {
++      .name = "OSD_FONT",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_VCOLOR",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_VCOLORZ",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_BCOLOR",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_TIMEOUT",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_MSG_BRIGHT",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "OSD_MSG_VOLUME",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
+ 
+-	// DEVICE
+-	{
+-		.name = "DEVICE",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	// ALSA
+-	{
+-		.name = "ALSA_NAME",
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	{
+-		.name = "SOUND_STEP",	/*mode by SilSha*/
+-		.value = NULL,
+-		.ivalue = NULL, 
+-	},
+-	// SET DEFAULT device aswell
+-	{
+-		.name = "BRT_SETDEFAULT", 
+-		.value = NULL,
+-		.ivalue = NULL,
+-	}, 
+-	// HACK for FSJ
+-	{
+-		.name = "BRT_HACK_FJS",
+-		.value = NULL,
+-		.ivalue = NULL,
+-	},
+-	{
+-		.name = NULL
+-	}
+-};
++    // DEVICE
++    {
++      .name = "DEVICE",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    // ALSA
++    {
++      .name = "ALSA_NAME",
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    {
++      .name = "SOUND_STEP",	/*mode by SilSha*/
++      .value = NULL,
++      .ivalue = NULL, 
++    },
++    // SET DEFAULT device aswell
++    {
++      .name = "BRT_SETDEFAULT", 
++      .value = NULL,
++      .ivalue = NULL,
++    }, 
++    // HACK for FSJ
++    {
++      .name = "BRT_HACK_FJS",
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = NULL
++    }
++  };
+ 
+ // def functions
+ char* getConfigValue(char* key);
+@@ -260,6 +333,26 @@
+ void setDefConfig() 
+   {
+ 	syslog(LOG_INFO,"Setting default configuration");
++	/* Key value default */
++#ifdef USE_MORECONF
++	syslog(LOG_INFO,"MORECONF loading default");
++	proceedConfig("FN_F2","1");
++	proceedConfig("FN_F2","1");
++	proceedConfig("FN_F3","2");
++	proceedConfig("FN_F4","4");
++	proceedConfig("FN_F5","8");
++	proceedConfig("FN_F6","16");
++	proceedConfig("FN_F7","32");
++	proceedConfig("FN_F10","128");
++	proceedConfig("FN_F12","64");
++	proceedConfig("S1_BTN","4096");
++	proceedConfig("S2_BTN","8192");
++	proceedConfig("FN_INPUT_VALUE","245");
++	proceedConfig("FN_INPUT_TYPE","4");
++	proceedConfig("FN_INPUT_CODE","4");
++	syslog(LOG_INFO,"MORECONF defaults loaded");
++#endif
++	/* setting default */
+ 	proceedConfig("DEVICE","AUTO");
+ 	proceedConfig("ALSA_NAME","Front");
+ 	proceedConfig("SOUND_STEP","10");		/*mod by SilSha*/
+
+
+
+From muaddib at berlios.de  Sun Apr 16 18:25:20 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Sun, 16 Apr 2006 18:25:20 +0200
+Subject: [Fsfn-svn] r48 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/gentoo
+Message-ID: <200604161625.k3GGPKPc030388@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-04-16 18:25:18 +0200 (Sun, 16 Apr 2006)
+New Revision: 48
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild
+Modified:
+   trunk/fsfn/Makefile.am
+   trunk/fsfn/Makefile.in
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/etc/fsfn.conf
+   trunk/fsfn/gentoo/fsfn-conf
+Log:
+Bumped version to 1.2 , corrected Makefile.am to include configuration for init.d scripts and created a new ebuild...
+
+As far as I am concerned, this should be released ;)
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild	2006-04-16 16:25:18 UTC (rev 48)
+@@ -0,0 +1,48 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION="Sony Vaio (FS series) laptop hotkey handler"
++HOMEPAGE="http://developer.berlios.de/projects/fsfn/"
++SRC_URI="http://users.skynet.be/muaddib/fsfn/${P}.tar.gz"
++
++LICENSE="GPL-2"
++SLOT="0"
++KEYWORDS="~x86"
++IUSE="xosd moreconf"
++
++DEPEND="
++	xosd? ( >=x11-libs/xosd-2.2.0 )
++	>=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++"
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf="${my_conf} --disable-xosd"
++	use moreconf && my_conf="${my_conf} --enable-moreconf"
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo "xosd support built in"
++		einfo "To enable it, please add 'fsfn -o' to your x session"
++		einfo
++	fi
++
++	econf ${my_conf} || die "configuration failed"
++
++	emake || die "make of fsfn failed"
++}
++
++src_install() {
++	make DESTDIR="${D}" install || die "Installation failed!"
++	doinitd ${S}/gentoo/fsfn || die "Failed to install initd script"
++	newconfd ${S}/gentoo/fsfn-conf fsfn || die "Failed to install config script"	
++	einfo
++	einfo "You can use /etc/init.d/fsfn script to start fsfn"
++	einfo
++}
+
+Modified: trunk/fsfn/Makefile.am
+===================================================================
+--- trunk/fsfn/Makefile.am	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/Makefile.am	2006-04-16 16:25:18 UTC (rev 48)
+@@ -2,6 +2,10 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ SUBDIRS      = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
++EXTRA_DIST =  \
++	gentoo/fsfn gentoo/fsfn-conf \
++	debian/fsfn debian/fsfn-conf \
++	fedora/fsfn fedora/fsfn-conf \
++	etc/fsfn.conf
+ 
+ ## Makefile.am ends here
+
+Modified: trunk/fsfn/Makefile.in
+===================================================================
+--- trunk/fsfn/Makefile.in	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/Makefile.in	2006-04-16 16:25:18 UTC (rev 48)
+@@ -149,7 +149,12 @@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+ SUBDIRS = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
++EXTRA_DIST = \
++	gentoo/fsfn gentoo/fsfn-conf \
++	debian/fsfn debian/fsfn-conf \
++	fedora/fsfn fedora/fsfn-conf \
++	etc/fsfn.conf
++
+ all: config.h
+ 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+ 
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/configure	2006-04-16 16:25:18 UTC (rev 48)
+@@ -1616,7 +1616,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=1.1
++ VERSION=1.2
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/configure.in	2006-04-16 16:25:18 UTC (rev 48)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 1.1)
++AM_INIT_AUTOMAKE(fsfn, 1.2)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/etc/fsfn.conf	2006-04-16 16:25:18 UTC (rev 48)
+@@ -1,15 +1,13 @@
+-# device
+-#DEVICE=/dev/input/event1
++# A sample config file for FSFN, check man 5 fsfn for possible values
++#DEVICE=AUTO
+ #ALSA_NAME=Front
+-SOUND_STEP=8
+-#osd looks
++#SOUND_STEP=8
+ #OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
+-OSD_VCOLOR=green
+-OSD_VCOLORZ=red
+-OSD_BCOLOR=blue
+-OSD_TIMEOUT=1
+-OSD_LEVEL=1
+-#scripts
++#OSD_VCOLOR=green
++#OSD_VCOLORZ=red
++#OSD_BCOLOR=blue
++#OSD_TIMEOUT=1
++#OSD_LEVEL=1
+ #F2_CMD=
+ #F3_CMD=
+ #F4_CMD=
+
+Modified: trunk/fsfn/gentoo/fsfn-conf
+===================================================================
+--- trunk/fsfn/gentoo/fsfn-conf	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/gentoo/fsfn-conf	2006-04-16 16:25:18 UTC (rev 48)
+@@ -3,8 +3,11 @@
+ 
+ # When a function key combination is pressed, some kernel output is usually
+ # generated because there is no binding for that scancode. To prevent filling up
+-# your kernel logs with unnecessary output, uncomment the following two lines
+-# and adjust them if needed. 112 should be a safe keycode in most cases.
++# your kernel logs with unnecessary output, uncomment the following lines
++# and adjust them if needed. 245 should be a safe keycode in most cases.
+ 
+ #SCANCODE=e075
+-#KEYCODE=112
++#KEYCODE=245
++
++#Other possible SCANCODE - check your kernel output :-)
++#SCANCODE=0xf5
+\ No newline at end of file
+
+
+

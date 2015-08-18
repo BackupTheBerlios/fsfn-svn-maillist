@@ -1,0 +1,126 @@
+From sound-mind at berlios.de  Tue Feb 21 13:29:56 2006
+From: sound-mind at berlios.de (sound-mind at BerliOS)
+Date: Tue, 21 Feb 2006 13:29:56 +0100
+Subject: [Fsfn-svn] r45 - in trunk/fsfn: . selinux selinux/src selinux/src/policy selinux/src/policy/domains selinux/src/policy/domains/program selinux/src/policy/macros selinux/src/policy/macros/program
+Message-ID: <200602211229.k1LCTunA020073@sheep.berlios.de>
+
+Author: sound-mind
+Date: 2006-02-21 13:29:51 +0100 (Tue, 21 Feb 2006)
+New Revision: 45
+
+Added:
+   trunk/fsfn/selinux/
+   trunk/fsfn/selinux/src/
+   trunk/fsfn/selinux/src/policy/
+   trunk/fsfn/selinux/src/policy/domains/
+   trunk/fsfn/selinux/src/policy/domains/program/
+   trunk/fsfn/selinux/src/policy/domains/program/fsfn.te
+   trunk/fsfn/selinux/src/policy/macros/
+   trunk/fsfn/selinux/src/policy/macros/program/
+   trunk/fsfn/selinux/src/policy/macros/program/fsfn_macros.te
+Log:
+Adding some selinux policies for fsfn which has unique security attributes
+that shouldn't be granted to a user domain.
+
+
+Added: trunk/fsfn/selinux/src/policy/domains/program/fsfn.te
+===================================================================
+--- trunk/fsfn/selinux/src/policy/domains/program/fsfn.te	2006-01-21 17:25:36 UTC (rev 44)
++++ trunk/fsfn/selinux/src/policy/domains/program/fsfn.te	2006-02-21 12:29:51 UTC (rev 45)
+@@ -0,0 +1,37 @@
++# Policy for the fsfn daemon for sony vaio laptops
++# Author:  Spencer Shimko <spencer at beyondabstraction.net>
++
++#################################
++#
++# Rules for the hald_t domain.
++#
++# hald_exec_t is the type of the hald executable.
++#
++daemon_domain(fsfn)
++
++allow fsfn_t { etc_t }:file { getattr read };
++
++allow fsfn_t initrc_var_run_t:file rw_file_perms;
++allow fsfn_t usr_t:file r_file_perms;
++
++allow fsfn_t proc_acpi_t:dir r_dir_perms;
++allow fsfn_t proc_acpi_t:file rw_file_perms;
++allow fsfn_t proc_t:file read;
++
++allow fsfn_t self:msgq { create destroy unix_write write enqueue };
++allow fsfn_t self:msg { send receive };
++
++allow fsfn_t self:{ unix_dgram_socket unix_stream_socket } create_socket_perms;
++
++# read events
++allow fsfn_t event_device_t:chr_file read;
++
++# change the volume
++allow fsfn_t sound_device_t:chr_file rw_file_perms;
++
++# ran by init
++allow init_t fsfn_t:dir search;
++allow init_t fsfn_exec_t:file getattr;
++allow init_t fsfn_t:lnk_file read;
++
++allow fsfn_t tty_device_t:chr_file { read write };
+
+Added: trunk/fsfn/selinux/src/policy/macros/program/fsfn_macros.te
+===================================================================
+--- trunk/fsfn/selinux/src/policy/macros/program/fsfn_macros.te	2006-01-21 17:25:36 UTC (rev 44)
++++ trunk/fsfn/selinux/src/policy/macros/program/fsfn_macros.te	2006-02-21 12:29:51 UTC (rev 45)
+@@ -0,0 +1,50 @@
++define(`can_use_fsfn',`
++type $1_fsfn_t, domain, privlog;
++
++domain_auto_trans($1_t, fsfn_exec_t, $1_fsfn_t)
++ifelse($2,`',`
++role $1_r types $1_fsfn_t;
++',`
++role $2_r types $1_fsfn_t;
++')
++
++read_locale($1_fsfn_t)
++read_sysctl($1_fsfn_t)
++uses_shlib($1_fsfn_t)
++x_client_domain($1_fsfn, $1)
++
++allow $1_fsfn_t self:process { execmem fork sigkill signal };
++allow $1_fsfn_t fsfn_t:msgq { unix_read unix_write associate read };
++allow $1_fsfn_t fsfn_t:msg receive;
++
++allow $1_t $1_fsfn_t:process signal;
++
++allow $1_fsfn_t xdm_xserver_t:unix_stream_socket connectto;
++
++allow $1_fsfn_t { root_t usr_t tmp_t etc_t proc_t }:dir search;
++allow $1_fsfn_t $1_home_dir_t:dir search;
++
++allow $1_fsfn_t self:fifo_file read;
++allow $1_fsfn_t self:unix_dgram_socket connect;
++allow $1_fsfn_t self:unix_stream_socket getattr;
++
++allow $1_t fsfn_exec_t:file rx_file_perms;
++allow $1_fsfn_t root_t:dir search;
++allow $1_fsfn_t device_t:dir search;
++allow $1_fsfn_t devlog_t:sock_file write;
++allow $1_fsfn_t etc_t:file r_file_perms;
++allow $1_fsfn_t home_root_t:dir search;
++allow $1_fsfn_t proc_acpi_t:dir getattr;
++allow $1_fsfn_t $1_devpts_t:chr_file { read write };
++allow $1_fsfn_t $1_xauth_home_t:file getattr;
++allow $1_fsfn_t syslogd_t:unix_stream_socket connectto;
++allow $1_fsfn_t null_device_t:chr_file read;
++allow $1_fsfn_t $1_home_t:dir read;
++
++allow $1_fsfn_t proc_acpi_t:dir search;
++allow $1_fsfn_t self:fifo_file write;
++allow $1_fsfn_t self:tcp_socket create;
++allow $1_fsfn_t self:unix_dgram_socket create;
++allow $1_fsfn_t self:unix_stream_socket read;
++allow $1_fsfn_t $1_xauth_home_t:file read;
++')
+
+
+

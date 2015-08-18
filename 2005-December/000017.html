@@ -1,0 +1,812 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r37 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-December/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r37%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/etc%20fsfn/src&In-Reply-To=%3C200512152217.jBFMH4po032431%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000016.html">
+   <LINK REL="Next"  HREF="000018.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r37 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r37%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/etc%20fsfn/src&In-Reply-To=%3C200512152217.jBFMH4po032431%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r37 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Thu Dec 15 23:17:04 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000016.html">[Fsfn-svn] r36 - in trunk/ebuilds: . app-laptop/fsfn
+</A></li>
+        <LI>Next message: <A HREF="000018.html">[Fsfn-svn] r38 - trunk/fsfn/etc
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#17">[ date ]</a>
+              <a href="thread.html#17">[ thread ]</a>
+              <a href="subject.html#17">[ subject ]</a>
+              <a href="author.html#17">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-12-15 23:17:03 +0100 (Thu, 15 Dec 2005)
+New Revision: 37
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+Modified:
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/etc/fsfn.conf
+   trunk/fsfn/src/alsasound.c
+   trunk/fsfn/src/alsasound.h
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/osd.c
+   trunk/fsfn/src/readconfig.c
+   trunk/fsfn/src/readconfig.h
+Log:
+Adapted a submitted patch by Sacha Franke &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">buzzerbeater at gmx.net</A>&gt; and updated man pages about the new features.
+FYI, these changes implement:
+- OSD_MSG_BRIGHT and OSD_MSG_VOLUME : 
+	customizable OSD message. Not used by default
+- OSD_VCOLORZ: A custom OSD color for 0 volume
+	default is red
+- SOUND_STEP: custom value for sound stepping
+
+Bumped svn version to 1.1
+
+Added ebuild for 1.1
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-15 22:17:03 UTC (rev 37)
+@@ -0,0 +1,49 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION=&quot;Sony Vaio (FS series) laptop hotkey handler&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://download.berlios.de/fsfn/${P">http://download.berlios.de/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;xosd&quot;
++
++DEPEND=&quot;
++	xosd? ( &gt;=x11-libs/xosd-2.2.0 )
++	&gt;=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++&quot;
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf=&quot;${my_conf} --disable-xosd&quot;
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo &quot;xosd support built in&quot;
++		einfo &quot;To enable it, please add 'fsfn -o' to your x session&quot;
++		einfo
++	fi
++
++	./configure ${my_conf} || die &quot;configuration failed&quot;
++
++	emake || die &quot;make of fsfn failed&quot;
++}
++
++src_install() {
++	make DESTDIR=&quot;${D}&quot; install || die &quot;Installation failed!&quot;
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo &quot;You can use /etc/init.d/fsfn script to start fsfn&quot;
++	einfo
++}
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/configure	2005-12-15 22:17:03 UTC (rev 37)
+@@ -1615,7 +1615,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=1.0
++ VERSION=1.1
+ 
+ 
+ cat &gt;&gt;confdefs.h &lt;&lt;_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/configure.in	2005-12-15 22:17:03 UTC (rev 37)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 1.0)
++AM_INIT_AUTOMAKE(fsfn, 1.1)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/etc/fsfn.conf	2005-12-15 22:17:03 UTC (rev 37)
+@@ -1,11 +1,15 @@
+ # device
+ #DEVICE=/dev/input/event1
+ #ALSA_NAME=Front
+-# osd looks
++SOUND_STEP=8
++#osd looks
+ #OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
+-#OSD_VCOLOR=green
+-#OSD_BCOLOR=yellow
+-# scripts
++OSD_VCOLOR=green
++OSD_VCOLORZ=red
++OSD_BCOLOR=blue
++OSD_TIME=1
++OSD_LEVEL=1
++#scripts
+ #F2_CMD=
+ #F3_CMD=
+ #F4_CMD=
+
+Modified: trunk/fsfn/src/alsasound.c
+===================================================================
+--- trunk/fsfn/src/alsasound.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/alsasound.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -194,34 +194,30 @@
+ }
+ 
+ int
+-volume_up ()
++volume_up (int step)
+ {
+   int value = 0;
+ 
+   get_volume (&amp;value);
+ 
+-  if (value &lt; 100)
+-  {
+-	  if (value &gt; 90) {
+-		value=100;
+-	  }
+-  	  else value += 10;
+-  }
++//rewritten by SilSha
++  if (value &lt;= 100-step)
++	value += step;
+   else
+-    value = 100;
++	value=100;
+ 
+   return set_volume (&amp;value);
+ }
+ 
+ int
+-volume_down ()
++volume_down (int step)
+ {
+   int value = 0;
+ 
+   get_volume (&amp;value);
+ 
+-  if (value &gt; 9)
+-    value -= 10;
++  if (value &gt;= step)
++    value -= step; //mod by SilSha
+   else
+     value = 0;
+ 
+@@ -230,7 +226,7 @@
+ 
+ static int oldvalue;
+ int
+-mute ()
++mute (int step)	//mod by SilSha
+ {
+   int value;
+ 
+@@ -251,7 +247,7 @@
+ 
+   if (!oldvalue)
+     {
+-      return volume_up ();
++      return volume_up (step);	//mod by SilSha
+     }
+ 
+   return set_volume (&amp;oldvalue);
+
+Modified: trunk/fsfn/src/alsasound.h
+===================================================================
+--- trunk/fsfn/src/alsasound.h	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/alsasound.h	2005-12-15 22:17:03 UTC (rev 37)
+@@ -23,8 +23,8 @@
+ 
+ int get_volume(int *value);
+ int set_volume(int *value);
+-int volume_up();
+-int volume_down();
+-int mute();
++int volume_up(int step);	//mod by SilSha
++int volume_down(int step);
++int mute(int step);
+ 
+ #endif
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/fsfn.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -51,6 +51,8 @@
+ #include &quot;osd.h&quot;
+ #endif
+ 
++#define SOUND_STEP	getConfigInt(&quot;SOUND_STEP&quot;) //mod by SilSha
++
+ #define MAX_DEVINPUT_SIZE	255
+ static char devinput[MAX_DEVINPUT_SIZE];
+ 
+@@ -247,10 +249,10 @@
+ 		  {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = mute ();
++	      		sound = mute (SOUND_STEP);
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		mute ();			
++	      		mute (SOUND_STEP);			
+ #endif
+ 		  }
+ 	    }
+@@ -260,10 +262,10 @@
+ 	          {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = volume_down ();
++	      		sound = volume_down (SOUND_STEP);	//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		volume_down ();
++	      		volume_down (SOUND_STEP);
+ #endif
+ 		  }
+ 	    }
+@@ -273,10 +275,10 @@
+ 	         {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = volume_up ();
++	      		sound = volume_up (SOUND_STEP);		//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		volume_up ();
++	      		volume_up (SOUND_STEP);
+ #endif
+ 		 }	
+ 	    }
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/fsfn.pod	2005-12-15 22:17:03 UTC (rev 37)
+@@ -58,6 +58,12 @@
+ 
+ Default: B&lt;Front&gt;.
+ 
++=item B&lt;SOUND_STEP&gt;
++
++The B&lt;SOUND_STEP&gt; keyword is used to specify the incrementation/decrementation to use in volume change. It is exprimed in percent.
++
++Default:B&lt;10&gt;
++
+ =item B&lt;OSD_VCOLOR&gt;
+ 
+ The B&lt;OSD_VCOLOR&gt; keyword is used to specify the OSD color for the
+@@ -65,6 +71,12 @@
+ 
+ Default: B&lt;red&gt;
+ 
++=item B&lt;OSD_VCOLORZ&gt;
++
++The B&lt;OSD_VCOLORZ&gt; keyword is used to specify the OSD color for a muted volume display.
++
++Default: B&lt;red&gt;
++
+ =item B&lt;OSD_BCOLOR&gt;
+ 
+ The B&lt;OSD_BCOLOR&gt; keyword is used to specify the OSD color for the
+@@ -80,6 +92,25 @@
+ 
+ Default: B&lt;-*-*-*-*-*-*-20-*-*-*-*-*-*-*&gt;
+ 
++=item B&lt;OSD_TIMEOUT&gt;
++
++The B&lt;OSD_TIMEOUT&gt; keyword is used to specifiy the OSD timeout exprimed in seconds
++
++Default: B&lt;3&gt;
++
++=item B&lt;OSD_MSG_VOLUME&gt;
++
++The B&lt;OSD_MSG_VOLUME&gt; keyword allows to set a non-standard OSD volume message. The special value B&lt;%d&gt; will be replaced by the current volume. 
++
++Default: B&lt;Volume&gt;
++
++=item B&lt;OSD_MSG_BRIGHT&gt;
++
++The B&lt;OSD_MSG_BRIGHT&gt; keyword allows to set a non-standard OSD brightness message. The special value B&lt;%d&gt; will be replaced by the current brightness. 
++
++Default: B&lt;Brightness&gt;
++
++
+ =item B&lt;F2_CMD&gt;
+ 
+ The B&lt;F2_CMD&gt; keyword is used to specify alternate action for the
+@@ -166,8 +197,10 @@
+ 
+   DEVICE=AUTO
+   OSD_VCOLOR=green
++  OSD_VCOLORZ=red
+   OSD_BCOLOR=yellow
+   OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
++  OSD_MSG_VOLUME=Volume (%d)
+   F12_CMD=/usr/local/bin/my_hibernate
+ 
+ =head1 FILES
+
+Modified: trunk/fsfn/src/osd.c
+===================================================================
+--- trunk/fsfn/src/osd.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/osd.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -26,6 +26,7 @@
+ #include &lt;stdlib.h&gt;
+ #include &lt;stdio.h&gt;
+ #include &lt;stdlib.h&gt;
++#include &lt;string.h&gt;
+ #include &lt;errno.h&gt;
+ #include &lt;xosd.h&gt;
+ #include &lt;locale.h&gt;
+@@ -37,14 +38,20 @@
+ 
+ // the volume osd color
+ #define OSD_VCOLOR 	getConfig(&quot;OSD_VCOLOR&quot;)
++//the volume osd color when volume is set to zero
++#define OSD_VCOLORZ 	getConfig(&quot;OSD_VCOLORZ&quot;)
+ // the brightness osd color
+ #define OSD_BCOLOR 	getConfig(&quot;OSD_BCOLOR&quot;)
+ // the osd font... change the 7th position for size
+ // or use xfontsel to explore the options
+ #define OSD_FONT 	getConfig(&quot;OSD_FONT&quot;)
+ // the length of time the osd is shown
+-#define OSD_TIME 3
++#define OSD_TIMEOUT	getConfigInt(&quot;OSD_TIMEOUT&quot;)
++// Custom messages (based on SilSha idea)
++#define OSD_MSG_BRIGHT	getConfig(&quot;OSD_MSG_BRIGHT&quot;)
++#define OSD_MSG_VOLUME	getConfig(&quot;OSD_MSG_VOLUME&quot;)		
+ 
++
+ // volume scaling factor for OSD
+ #define OSD_VSCALE 250
+ 
+@@ -80,7 +87,34 @@
+     }
+ }
+ 
++// loop the string to check for potential security issue.
++// TODO: this code should be reviewed - dirty hack to avoid rerun
++int
++validate_osd_message(char* message) {
++	int i;
++	int maxsize=strlen(message);
++	int count=0;
++	for (i=0;i&lt;maxsize-1;i++) {
++		if (message[i]=='%') {
++			if ( (i) &amp;&amp; message[i-1]=='\\') { // escaped, do not care
++				continue; 
++			}
++			else {
++				if (message[i+1]!='d') {
++					return 0; // a non escaped non dec. ==&gt; incorrect
++				}
++				count++;
++				if (count &gt; 1) { // more than 1
++					return 0;
++				}
++			}
++		}
++	}
++	return 1;
++}
+ 
++int bright_validated=0; // to keep validation status
++
+ int
+ osd_brightness (int level)
+ {
+@@ -105,7 +139,7 @@
+   retval |= xosd_set_outline_offset (disp_obj, 1);
+   retval |= xosd_set_vertical_offset (disp_obj, 30);
+   retval |= xosd_set_colour (disp_obj, OSD_BCOLOR);
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIME);
++  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+   
+   retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
+ 
+@@ -131,8 +165,38 @@
+ 	{
+ 	  pos = level * inc_size - inc_size;
+ 	}
++
+       retval = xosd_display (disp_obj, 0, XOSD_slider, pos);
+-      retval = xosd_display (disp_obj, 1, XOSD_string, &quot;Brightness&quot;);
++
++	if (OSD_MSG_BRIGHT) // we got a message
++	{
++		char message[255];
++		if (bright_validated || validate_osd_message(OSD_MSG_BRIGHT)) {
++			bright_validated=1;
++			if (snprintf(message,255,OSD_MSG_BRIGHT,level)&gt;0) {
++				retval = xosd_display (disp_obj, 1, XOSD_string,message);
++			}
++			else {
++				syslog(LOG_NOTICE,
++			       		&quot;Failed to display custom message for brightness&quot;);
++				// try hardcoded one
++				retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Brightness&quot;);
++			};
++		}
++		else {
++			syslog(LOG_NOTICE,
++					&quot;OSD_MSG_BRIGHT value is invalid&quot;);
++			// invalidate OSD_MSG_BRIGHT
++			setConfig(&quot;OSD_MSG_BRIGHT&quot;,NULL);
++
++			retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Brightness&quot;); // use default
++		}
++
++	}
++	else {
++		retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Brightness&quot;);
++	}
++
+       if (retval == -1)
+ 	{
+ 	  syslog (LOG_NOTICE,
+@@ -147,13 +211,14 @@
+   return 1;
+ }
+ 
++int volume_validated=0; // remember if already validated
++
+ int
+ osd_volume (int level)
+ {
+   int retval = 0;
+   int retval_nc = 0; // non critical errors
+ 
+-
+   // create if needed
+   if (!osd_load ())
+     {
+@@ -168,9 +233,14 @@
+   retval |= xosd_set_align (disp_obj, XOSD_center);
+   retval |= xosd_set_shadow_offset (disp_obj, 1);
+   retval |= xosd_set_outline_offset (disp_obj, 1);
+-  retval |= xosd_set_vertical_offset (disp_obj, 30);
++  retval |= xosd_set_vertical_offset (disp_obj, 30);	//mod by SilSha
++  if (level == 0) {  
++  	retval |= xosd_set_colour (disp_obj, OSD_VCOLORZ);
++  }
++  else {
+   retval |= xosd_set_colour (disp_obj, OSD_VCOLOR);
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIME);
++  }
++  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+   
+   retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
+ 
+@@ -188,9 +258,37 @@
+       	syslog (LOG_CRIT, &quot;Failed non-critical setup onscreen display: %s\n&quot;, xosd_error);
+       }
+ 
+-//      retval = xosd_display (disp_obj, 0, XOSD_slider, level / OSD_VSCALE);
+       retval = xosd_display (disp_obj, 0, XOSD_slider, level);
+-      retval = xosd_display (disp_obj, 1, XOSD_string, &quot;Volume&quot;);
++
++
++	if (OSD_MSG_VOLUME) // we got a message
++	{
++		if (volume_validated || validate_osd_message(OSD_MSG_VOLUME)) {
++			char message[255];
++			volume_validated=1; // no need to revalidate
++			if (snprintf(message,255,OSD_MSG_VOLUME,level) &gt; 0) {
++				retval = xosd_display (disp_obj, 1, XOSD_string,message);
++			}
++			else {
++				syslog(LOG_NOTICE,
++			       		&quot;Failed to display custom message for volume&quot;);
++				// try hardcoded one
++				retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Volume&quot;);
++			}
++		}
++		else {
++			syslog(LOG_NOTICE,
++					&quot;OSD_MSG_VOLUME value is invalid&quot;);
++			// invalidate OSD_MSG_VOLUME
++			setConfig(&quot;OSD_MSG_VOLUME&quot;,NULL);
++			retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Volume&quot;); // use default
++
++		}
++	}
++	else {
++		retval = xosd_display (disp_obj, 1, XOSD_string,&quot;Volume&quot;);
++	}
++              
+       if (retval == -1)
+ 	{
+ 	  syslog (LOG_NOTICE,
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/readconfig.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -34,73 +34,115 @@
+ struct config_entry {
+ 	char* name;
+ 	char* value;
++	int*  ivalue; // to hold possible int 
+ } config_list[] = 
+ {
+ 	// keys
+ 	{
+ 		.name = &quot;F2_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F3_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F4_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F5_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F6_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F7_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F10_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;F12_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;S1_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;S2_CMD&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	// OSD
+ 	{
+ 		.name = &quot;OSD_FONT&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = &quot;OSD_VCOLOR&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
++		.name = &quot;OSD_VCOLORZ&quot;,
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
+ 		.name = &quot;OSD_BCOLOR&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
++	{
++		.name = &quot;OSD_TIMEOUT&quot;,
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
++		.name = &quot;OSD_MSG_BRIGHT&quot;,
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
++		.name = &quot;OSD_MSG_VOLUME&quot;,
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++
+ 	// DEVICE
+ 	{
+ 		.name = &quot;DEVICE&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	// ALSA
+ 	{
+ 		.name = &quot;ALSA_NAME&quot;,
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
++		.name = &quot;SOUND_STEP&quot;,	/*mode by SilSha*/
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
+ 		.name = NULL
+ 	}
+ };
+@@ -127,6 +169,21 @@
+ 	return NULL;
+ }
+ 
++int getConfigValueInt(char* key) {
++	struct config_entry* it;
++	for (it=config_list; it-&gt;name; it++) {
++		if (!strcasecmp(it-&gt;name,key)) {
++			if (it-&gt;ivalue==NULL) { // lazy convert
++				it-&gt;ivalue = (int*) malloc(sizeof(int));
++				it-&gt;ivalue[0] = atoi(it-&gt;value);
++			}
++			return it-&gt;ivalue[0];
++		}
++	}
++
++	return 0;
++}
++
+ // set a config key
+ int setConfigValue(char*key,char* value) {
+ 	struct config_entry* it;
+@@ -136,8 +193,14 @@
+ 				free(it-&gt;value);
+ 				it-&gt;value=NULL; // to keep clean...
+ 			}
+-			it-&gt;value=(char*)malloc(strlen(value)+1);
+-			strcpy(it-&gt;value,value);
++			if (it-&gt;ivalue!=NULL) { // clean int buffer
++				free(it-&gt;ivalue);
++				it-&gt;ivalue=NULL;
++			}
++			if (value!=NULL) { // only if value is not null
++				it-&gt;value=(char*)malloc(strlen(value)+1);
++				strcpy(it-&gt;value,value);
++			}
+ 			return 1;
+ 		}
+ 	}
+@@ -182,10 +245,13 @@
+ 	syslog(LOG_INFO,&quot;Setting default configuration&quot;);
+ 	proceedConfig(&quot;DEVICE&quot;,&quot;AUTO&quot;);
+ 	proceedConfig(&quot;ALSA_NAME&quot;,&quot;Front&quot;);
++	proceedConfig(&quot;SOUND_STEP&quot;,&quot;10&quot;);		/*mod by SilSha*/
+ 	proceedConfig(&quot;F12_CMD&quot;,&quot;/bin/hibernate&quot;);
+ 	proceedConfig(&quot;OSD_VCOLOR&quot;,&quot;red&quot;);
++	proceedConfig(&quot;OSD_VCOLORZ&quot;,&quot;red&quot;);
+ 	proceedConfig(&quot;OSD_BCOLOR&quot;,&quot;blue&quot;);
+ 	proceedConfig(&quot;OSD_FONT&quot;,&quot;-*-*-*-*-*-*-20-*-*-*-*-*-*-*&quot;);
++	proceedConfig(&quot;OSD_TIMEOUT&quot;,&quot;3&quot;);
+ 	syslog(LOG_INFO,&quot;default configuration done&quot;);
+   }
+ 
+@@ -256,6 +322,10 @@
+ 			free(it-&gt;value);
+ 			it-&gt;value=NULL;
+ 		}
++		if (it-&gt;ivalue) {
++			free(it-&gt;ivalue);
++			it-&gt;ivalue=NULL;
++		}
+ 	}
+ 	_config_loaded=0;
+ }
+@@ -265,3 +335,13 @@
+ 	loadConfig();
+ 	return getConfigValue(key);
+ }
++
++int getConfigInt(char* key) {
++	loadConfig();
++	return getConfigValueInt(key);
++}
++
++int setConfig(char* key,char* value) {
++	loadConfig();
++	return setConfigValue(key,value);
++}
+
+Modified: trunk/fsfn/src/readconfig.h
+===================================================================
+--- trunk/fsfn/src/readconfig.h	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/readconfig.h	2005-12-15 22:17:03 UTC (rev 37)
+@@ -25,6 +25,11 @@
+ void releaseConfig();
+ 
+ char* getConfig(char*);
++int   getConfigInt(char* key); // same as previous, but return an int
++int   getConfigValueBool(char* key); // same as previous, but return a bool
++
++int   setConfig(char* key,char* value); // set a config
++
+ #define USER_CONFIG_FILE	&quot;/etc/fsfn.conf&quot;
+ 
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000016.html">[Fsfn-svn] r36 - in trunk/ebuilds: . app-laptop/fsfn
+</A></li>
+	<LI>Next message: <A HREF="000018.html">[Fsfn-svn] r38 - trunk/fsfn/etc
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#17">[ date ]</a>
+              <a href="thread.html#17">[ thread ]</a>
+              <a href="subject.html#17">[ subject ]</a>
+              <a href="author.html#17">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

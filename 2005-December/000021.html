@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r41 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-December/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r41%20-%20trunk/fsfn/src&In-Reply-To=%3C200512192125.jBJLPENS004241%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000020.html">
+   <LINK REL="Next"  HREF="000022.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r41 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r41%20-%20trunk/fsfn/src&In-Reply-To=%3C200512192125.jBJLPENS004241%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r41 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Mon Dec 19 22:25:14 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000020.html">[Fsfn-svn] r40 - trunk/fsfn/src
+</A></li>
+        <LI>Next message: <A HREF="000022.html">[Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#21">[ date ]</a>
+              <a href="thread.html#21">[ thread ]</a>
+              <a href="subject.html#21">[ subject ]</a>
+              <a href="author.html#21">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-12-19 22:25:13 +0100 (Mon, 19 Dec 2005)
+New Revision: 41
+
+Modified:
+   trunk/fsfn/src/acpihandler.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/readconfig.c
+Log:
+In order to possibly fix problems for FJS (bug #5926), added 2 config options:
+BRT_SETDEFAULT ==&gt; force the write to brightness to default as well. This is know to make fsfn works on Sony PCG K15
+BRT_HACK_FJS ==&gt; Do not read brightness from ACPI but use a internal value
+
+tarball sended to a tester
+
+
+
+Modified: trunk/fsfn/src/acpihandler.c
+===================================================================
+--- trunk/fsfn/src/acpihandler.c	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/acpihandler.c	2005-12-19 21:25:13 UTC (rev 41)
+@@ -30,9 +30,12 @@
+ #include &lt;fcntl.h&gt;
+ #include &lt;syslog.h&gt;
+ 
++#include &quot;readconfig.h&quot;
+ #include &quot;acpihandler.h&quot;
+ #include &quot;generics.h&quot;
+ 
++
++int _brightness=-1; /* for FSJ laptops (they don't return current brightness) */
+ /*
+  * Return current brightness of the screen 
+  */
+@@ -42,6 +45,16 @@
+   FILE *handle;
+   int ret;
+ 
++  if (getConfigInt(&quot;BRT_HACK_FJS&quot;))
++  {
++	syslog (LOG_NOTICE,&quot;FSJ HACK:current brightness %d&quot;,_brightness); 
++	if (_brightness &lt; 0) 
++	{
++		_brightness=getConfigInt(&quot;BRT_HACK_FJS&quot;);
++	}
++	return _brightness;
++  }
++
+   if ((handle = fopen (&quot;/proc/acpi/sony/brightness&quot;, &quot;rb&quot;)) == NULL)
+     {
+       syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness: %m&quot;);
+@@ -53,10 +66,11 @@
+       exit (-1);
+     }
+   fclose (handle);
++
+   return ret;
+-
+ }
+ 
++
+ /*
+  * Set the current brightness of the screen 
+  */
+@@ -82,10 +96,33 @@
+     }
+   if (fprintf (handle, &quot;%d&quot;, b) != 1)
+     {
+-      syslog (LOG_CRIT,&quot;Error reading /proc/acpi/sony/brightness: %m&quot;);
++      syslog (LOG_CRIT,&quot;Error writing /proc/acpi/sony/brightness: %m&quot;);
+       exit (-1);
+     }
+   fclose (handle);
++
++  if (getConfigInt(&quot;BRT_SETDEFAULT&quot;)) 
++    {
++	  syslog (LOG_INFO,&quot;Writing to default brigthness&quot;);
++	  if ((handle = fopen (&quot;/proc/acpi/sony/brightness_default&quot;, &quot;wb&quot;)) == NULL)
++		{
++		  syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness_default: %m&quot;);
++		  exit (-1);
++		}
++	  if (fprintf (handle, &quot;%d&quot;, b) != 1)
++		{
++		  syslog (LOG_CRIT,&quot;Error writing /proc/acpi/sony/brightness_default: %m&quot;);
++		  exit (-1);
++		}
++	  fclose (handle);
++    }
++  
++  if (getConfigInt(&quot;BRT_HACK_FJS&quot;)) 
++    {
++		syslog (LOG_NOTICE,&quot;FSJ HACK: brightnes set to %d&quot;,b); 
++		_brightness=b; // store new value
++    }
++
+   return b;
+ }
+ 
+@@ -100,12 +137,12 @@
+   int ret;
+   if ((handle = fopen (&quot;/proc/acpi/sony/fnkey&quot;, &quot;rb&quot;)) == NULL)
+     {
+-      syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness: %m&quot;);
++      syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/fnkey: %m&quot;);
+       exit (-1);
+     }
+   if (fscanf (handle, &quot;%d&quot;, &amp;ret) != 1)
+     {
+-      syslog (LOG_CRIT,&quot;Error reading /proc/acpi/sony/brightness: %m&quot;);
++      syslog (LOG_CRIT,&quot;Error reading /proc/acpi/sony/fnkey: %m&quot;);
+       exit (-1);
+     }
+   fclose (handle);
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/fsfn.pod	2005-12-19 21:25:13 UTC (rev 41)
+@@ -191,6 +191,18 @@
+ E&lt;lt&gt;S2E&lt;gt&gt; key press.  The value should be a path to an
+ executable program.
+ 
++=item B&lt;BRT_SETDEFAULT&gt;
++
++The B&lt;BRT_SETDEFAULT&gt; keyword is used to specify if the default brightness should be set with brightness. The value should be 0 for no, 1 for yes.
++
++Default: 0
++
++=item B&lt;BRT_HACK_FJS&gt;
++
++The B&lt;BRT_HACK_FJS&gt; keyword is used to specify if fsfn should use a workaround for setting brightness on your laptop. The value should be 0 (to not use) or the value to use as default brightness (from 1 to 8).
++
++Default: 0
++
+ =back
+ 
+ =head1 EXAMPLE
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/readconfig.c	2005-12-19 21:25:13 UTC (rev 41)
+@@ -142,7 +142,19 @@
+ 		.value = NULL,
+ 		.ivalue = NULL, 
+ 	},
++	// SET DEFAULT device aswell
+ 	{
++		.name = &quot;BRT_SETDEFAULT&quot;, 
++		.value = NULL,
++		.ivalue = NULL,
++	}, 
++	// HACK for FSJ
++	{
++		.name = &quot;BRT_HACK_FJS&quot;,
++		.value = NULL,
++		.ivalue = NULL,
++	},
++	{
+ 		.name = NULL
+ 	}
+ };
+@@ -166,6 +178,8 @@
+ 			return it-&gt;value;
+ 		}
+ 	}
++
++	syslog(LOG_NOTICE,&quot;%s value not found&quot;,key);
+ 	return NULL;
+ }
+ 
+@@ -180,7 +194,8 @@
+ 			return it-&gt;ivalue[0];
+ 		}
+ 	}
+-
++	
++	syslog(LOG_NOTICE,&quot;%s value not found&quot;,key);
+ 	return 0;
+ }
+ 
+@@ -204,6 +219,8 @@
+ 			return 1;
+ 		}
+ 	}
++	
++	syslog(LOG_NOTICE,&quot;%s value not found&quot;,key);
+ 	return -1;
+ }
+ 
+@@ -252,6 +269,8 @@
+ 	proceedConfig(&quot;OSD_BCOLOR&quot;,&quot;blue&quot;);
+ 	proceedConfig(&quot;OSD_FONT&quot;,&quot;-*-*-*-*-*-*-20-*-*-*-*-*-*-*&quot;);
+ 	proceedConfig(&quot;OSD_TIMEOUT&quot;,&quot;3&quot;);
++	proceedConfig(&quot;BRT_SETDEFAULT&quot;,&quot;0&quot;); 		// force new default value
++	proceedConfig(&quot;BRT_HACK_FJS&quot;,&quot;0&quot;);
+ 	syslog(LOG_INFO,&quot;default configuration done&quot;);
+   }
+ 
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000020.html">[Fsfn-svn] r40 - trunk/fsfn/src
+</A></li>
+	<LI>Next message: <A HREF="000022.html">[Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#21">[ date ]</a>
+              <a href="thread.html#21">[ thread ]</a>
+              <a href="subject.html#21">[ subject ]</a>
+              <a href="author.html#21">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

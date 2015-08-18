@@ -1,0 +1,207 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-December/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r28%20-%20in%20trunk%3A%20.%20ebuilds%20ebuilds/app-misc%20ebuilds/app-misc/fsfn%20ebuilds/app-misc/sonyacpi&In-Reply-To=%3C200512121556.jBCFu5iL027960%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000009.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r28%20-%20in%20trunk%3A%20.%20ebuilds%20ebuilds/app-misc%20ebuilds/app-misc/fsfn%20ebuilds/app-misc/sonyacpi&In-Reply-To=%3C200512121556.jBCFu5iL027960%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi">muaddib at berlios.de
+       </A><BR>
+    <I>Mon Dec 12 16:56:05 CET 2005</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000009.html">[Fsfn-svn] r29 - in trunk/fsfn: . fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#8">[ date ]</a>
+              <a href="thread.html#8">[ thread ]</a>
+              <a href="subject.html#8">[ subject ]</a>
+              <a href="author.html#8">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-12-12 16:56:03 +0100 (Mon, 12 Dec 2005)
+New Revision: 28
+
+Added:
+   trunk/ebuilds/
+   trunk/ebuilds/app-misc/
+   trunk/ebuilds/app-misc/fsfn/
+   trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+   trunk/ebuilds/app-misc/sonyacpi/
+   trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild
+Log:
+Since we are approaching a release time, I created basic ebuilds for sonyacpi and fsfn (gentoo people don't like to test/upgrade if no ebuilds are available...)
+
+These are not working out of the box (for now): 
+* sonyacpi: we need to create tarball of current svn sonyacpi and name it sonyacpi-0.1.tar.gz (just to keep thing clean)
+* fsfn: I use my current working set fsfn version, needs to be bumped to version 1.0 (actually, as long as it is bumped...)
+
+If someone want to try this:
+a) create a clean checkout of sonyacpi, rename dir to sonyacpi-0.1 and tar.gz it, copy to /usr/portage/distfile
+b) copy ebuild to overlay, in subdir app-misc/sonyacpi, ebuild sonyacpi-0.1.ebuild digest
+c) create a clean checkout of fsfn, edit configure.in to bump version to 1.0 then do: ./configure &amp;&amp; make dist , copy the resulting tar.gz to /usr/portage/distfile (fsfn-1.0.tar.gz)
+d) copy ebuild to overlay, in subdir app-misc/fsfn, ebuild fsfn-1.0.ebuild digest
+e) emerge fsfn
+
+At least on my system it's working. I am now waiting for Garry commit to create new tarballs (possibly bump version and/or update ebuilds). With these, only the usual overlay thing (b and d) will be needed.
+(I plan to submit the ebuilds to bugs.gentoo.org after a first successfull call for test on the fsfn topic in gentoo forums...but i don't think they will be committed...but who knows...)
+
+
+Added: trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-11 23:47:04 UTC (rev 27)
++++ trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-12 15:56:03 UTC (rev 28)
+@@ -0,0 +1,49 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION=&quot;Sony Vaio (FS series) laptop hotkey handler&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://download.berlios.de/fsfn/${P">http://download.berlios.de/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;xosd&quot;
++
++DEPEND=&quot;
++	xosd? ( &gt;=x11-libs/xosd-2.2.0 )
++	&gt;=app-misc/sonyacpi-0.1
++	dev-lang/perl
++&quot;
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf=&quot;${my_conf} --disable-xosd&quot;
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo &quot;xosd support built in&quot;
++		einfo &quot;To enable it, please add 'fsfn -i' to your x session&quot;
++		einfo
++	fi
++
++	./configure ${my_conf} || die &quot;configuration failed&quot;
++
++	emake || die &quot;make of fsfn failed&quot;
++}
++
++src_install() {
++	make DESTDIR=&quot;${D}&quot; install || die &quot;Installation failed!&quot;
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo &quot;You can use /etc/init.d/fsfn script to start fsfn&quot;
++	einfo
++}
+
+Added: trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild	2005-12-11 23:47:04 UTC (rev 27)
++++ trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild	2005-12-12 15:56:03 UTC (rev 28)
+@@ -0,0 +1,58 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++# $Header: $
++
++inherit eutils linux-mod
++
++DESCRIPTION=&quot;Linux kernel modules for Sony ACPI special items&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://download.berlios.de/fsfn/${P">http://download.berlios.de/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;&quot;
++
++DEPEND=&quot;virtual/linux-sources&quot;
++RDEPEND=&quot;virtual/modutils&quot;
++
++BUILD_TARGETS=&quot;modules&quot;
++MODULE_NAMES=&quot;sony_acpi(kernel/drivers/acpi:)&quot;
++
++CONFIG_CHECK=&quot;ACPI&quot;
++ERROR_ACPI=&quot;${P} requires ACPI to be enabled for kernel (CONFIG_ACPI)&quot;
++	
++pkg_setup() {
++	linux-mod_pkg_setup
++
++	if kernel_is 2 4; then
++		die &quot;${P} does not support building against kernel 2.4.x&quot;
++	fi
++
++	BUILD_PARAMS=&quot;KSRC=${KV_DIR} KSRC_OUTPUT=${KV_OUT_DIR}&quot;
++}
++
++src_unpack() {
++	S=${WORKDIR}/${P}
++	unpack ${A}
++	cd ${S}
++}
++
++src_compile() {
++	linux-mod_src_compile
++}
++
++
++src_install() {
++	linux-mod_src_install
++}
++
++pkg_postinst() {
++	linux-mod_pkg_postinst
++	einfo
++	einfo &quot;You can now add sony_acpi to your modules.autoload list&quot;
++	einfo &quot;echo sony_acpi &gt;&gt; /etc/modules.autoload.d/kernel-2.6&quot;
++	einfo
++}
++
++
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000009.html">[Fsfn-svn] r29 - in trunk/fsfn: . fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#8">[ date ]</a>
+              <a href="thread.html#8">[ thread ]</a>
+              <a href="subject.html#8">[ subject ]</a>
+              <a href="author.html#8">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,2058 @@
+From muaddib at berlios.de  Mon Dec 12 16:56:05 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Mon, 12 Dec 2005 16:56:05 +0100
+Subject: [Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi
+Message-ID: <200512121556.jBCFu5iL027960@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-12 16:56:03 +0100 (Mon, 12 Dec 2005)
+New Revision: 28
+
+Added:
+   trunk/ebuilds/
+   trunk/ebuilds/app-misc/
+   trunk/ebuilds/app-misc/fsfn/
+   trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+   trunk/ebuilds/app-misc/sonyacpi/
+   trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild
+Log:
+Since we are approaching a release time, I created basic ebuilds for sonyacpi and fsfn (gentoo people don't like to test/upgrade if no ebuilds are available...)
+
+These are not working out of the box (for now): 
+* sonyacpi: we need to create tarball of current svn sonyacpi and name it sonyacpi-0.1.tar.gz (just to keep thing clean)
+* fsfn: I use my current working set fsfn version, needs to be bumped to version 1.0 (actually, as long as it is bumped...)
+
+If someone want to try this:
+a) create a clean checkout of sonyacpi, rename dir to sonyacpi-0.1 and tar.gz it, copy to /usr/portage/distfile
+b) copy ebuild to overlay, in subdir app-misc/sonyacpi, ebuild sonyacpi-0.1.ebuild digest
+c) create a clean checkout of fsfn, edit configure.in to bump version to 1.0 then do: ./configure && make dist , copy the resulting tar.gz to /usr/portage/distfile (fsfn-1.0.tar.gz)
+d) copy ebuild to overlay, in subdir app-misc/fsfn, ebuild fsfn-1.0.ebuild digest
+e) emerge fsfn
+
+At least on my system it's working. I am now waiting for Garry commit to create new tarballs (possibly bump version and/or update ebuilds). With these, only the usual overlay thing (b and d) will be needed.
+(I plan to submit the ebuilds to bugs.gentoo.org after a first successfull call for test on the fsfn topic in gentoo forums...but i don't think they will be committed...but who knows...)
+
+
+Added: trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-11 23:47:04 UTC (rev 27)
++++ trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-12 15:56:03 UTC (rev 28)
+@@ -0,0 +1,49 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION="Sony Vaio (FS series) laptop hotkey handler"
++HOMEPAGE="http://developer.berlios.de/projects/fsfn/"
++SRC_URI="http://download.berlios.de/fsfn/${P}.tar.gz"
++
++LICENSE="GPL-2"
++SLOT="0"
++KEYWORDS="~x86"
++IUSE="xosd"
++
++DEPEND="
++	xosd? ( >=x11-libs/xosd-2.2.0 )
++	>=app-misc/sonyacpi-0.1
++	dev-lang/perl
++"
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf="${my_conf} --disable-xosd"
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo "xosd support built in"
++		einfo "To enable it, please add 'fsfn -i' to your x session"
++		einfo
++	fi
++
++	./configure ${my_conf} || die "configuration failed"
++
++	emake || die "make of fsfn failed"
++}
++
++src_install() {
++	make DESTDIR="${D}" install || die "Installation failed!"
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo "You can use /etc/init.d/fsfn script to start fsfn"
++	einfo
++}
+
+Added: trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild	2005-12-11 23:47:04 UTC (rev 27)
++++ trunk/ebuilds/app-misc/sonyacpi/sonyacpi-0.1.ebuild	2005-12-12 15:56:03 UTC (rev 28)
+@@ -0,0 +1,58 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++# $Header: $
++
++inherit eutils linux-mod
++
++DESCRIPTION="Linux kernel modules for Sony ACPI special items"
++HOMEPAGE="http://developer.berlios.de/projects/fsfn/"
++SRC_URI="http://download.berlios.de/fsfn/${P}.tar.gz"
++
++LICENSE="GPL-2"
++SLOT="0"
++KEYWORDS="~x86"
++IUSE=""
++
++DEPEND="virtual/linux-sources"
++RDEPEND="virtual/modutils"
++
++BUILD_TARGETS="modules"
++MODULE_NAMES="sony_acpi(kernel/drivers/acpi:)"
++
++CONFIG_CHECK="ACPI"
++ERROR_ACPI="${P} requires ACPI to be enabled for kernel (CONFIG_ACPI)"
++	
++pkg_setup() {
++	linux-mod_pkg_setup
++
++	if kernel_is 2 4; then
++		die "${P} does not support building against kernel 2.4.x"
++	fi
++
++	BUILD_PARAMS="KSRC=${KV_DIR} KSRC_OUTPUT=${KV_OUT_DIR}"
++}
++
++src_unpack() {
++	S=${WORKDIR}/${P}
++	unpack ${A}
++	cd ${S}
++}
++
++src_compile() {
++	linux-mod_src_compile
++}
++
++
++src_install() {
++	linux-mod_src_install
++}
++
++pkg_postinst() {
++	linux-mod_pkg_postinst
++	einfo
++	einfo "You can now add sony_acpi to your modules.autoload list"
++	einfo "echo sony_acpi >> /etc/modules.autoload.d/kernel-2.6"
++	einfo
++}
++
++
+
+
+
+From gtwilliams at berlios.de  Tue Dec 13 03:58:58 2005
+From: gtwilliams at berlios.de (gtwilliams at BerliOS)
+Date: Tue, 13 Dec 2005 03:58:58 +0100
+Subject: [Fsfn-svn] r29 - in trunk/fsfn: . fedora
+Message-ID: <200512130258.jBD2wwbv000382@sheep.berlios.de>
+
+Author: gtwilliams
+Date: 2005-12-13 03:58:52 +0100 (Tue, 13 Dec 2005)
+New Revision: 29
+
+Added:
+   trunk/fsfn/fedora/
+   trunk/fsfn/fedora/fsfn
+Log:
+Added start-up script for Fedora.
+
+
+Added: trunk/fsfn/fedora/fsfn
+===================================================================
+--- trunk/fsfn/fedora/fsfn	2005-12-12 15:56:03 UTC (rev 28)
++++ trunk/fsfn/fedora/fsfn	2005-12-13 02:58:52 UTC (rev 29)
+@@ -0,0 +1,79 @@
++#!/bin/sh
++#
++# chkconfig: 2345 60 60
++# description: Sony Vaio (FS series) laptop hotkey handler
++#
++# Copy this script to /etc/init.d/fsfn then run as root:
++#
++#   chkconfig --add fsfn
++#
++# You probably also want to add fsfn to your desktop start-up process.
++# For Gnome, 
++#
++#   Desktop -> Preferences -> More Preferences -> Sessions
++#
++# then add fsfn to the Startup Programs tab as
++#
++#   /usr/local/bin/fsfn -o
++
++[ -x /usr/local/bin/fsfn ] || exit 0
++
++# Source function library.
++. /etc/rc.d/init.d/functions
++
++RETVAL=0
++
++start() {
++	# Check if it is already running
++	if [ ! -f /var/lock/subsys/fsfn ]; then
++	    echo -n $"Starting fsfn daemon: "
++	    daemon /usr/local/bin/fsfn
++	    RETVAL=$?
++	    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/fsfn
++	    echo
++	fi
++	return $RETVAL
++}
++
++stop() {
++	echo -n $"Stopping fsfn daemon: "
++	killproc /usr/local/bin/fsfn
++	RETVAL=$?
++	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/fsfn
++	echo
++        return $RETVAL
++}
++
++restart() {
++	stop
++	start
++}	
++
++#
++# See how we were called.
++#
++
++case "$1" in
++start)
++	start
++	;;
++stop)
++	stop
++	;;
++restart)
++	restart
++	;;
++condrestart)
++	if [ -f /var/lock/subsys/acpid ]; then
++	    restart
++	fi
++	;;
++status)
++	status fsfn
++	;;
++*)
++	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
++	exit 1
++esac
++
++exit $RETVAL
+
+
+Property changes on: trunk/fsfn/fedora/fsfn
+___________________________________________________________________
+Name: svn:executable
+   + *
+
+
+
+From gtwilliams at berlios.de  Tue Dec 13 04:15:49 2005
+From: gtwilliams at berlios.de (gtwilliams at BerliOS)
+Date: Tue, 13 Dec 2005 04:15:49 +0100
+Subject: [Fsfn-svn] r30 - trunk/fsfn/fedora
+Message-ID: <200512130315.jBD3FnBE006218@sheep.berlios.de>
+
+Author: gtwilliams
+Date: 2005-12-13 04:15:46 +0100 (Tue, 13 Dec 2005)
+New Revision: 30
+
+Modified:
+   trunk/fsfn/fedora/fsfn
+Log:
+Corrected copy/paste error.
+
+Modified: trunk/fsfn/fedora/fsfn
+===================================================================
+--- trunk/fsfn/fedora/fsfn	2005-12-13 02:58:52 UTC (rev 29)
++++ trunk/fsfn/fedora/fsfn	2005-12-13 03:15:46 UTC (rev 30)
+@@ -64,7 +64,7 @@
+ 	restart
+ 	;;
+ condrestart)
+-	if [ -f /var/lock/subsys/acpid ]; then
++	if [ -f /var/lock/subsys/fsfn ]; then
+ 	    restart
+ 	fi
+ 	;;
+
+
+
+From gtwilliams at berlios.de  Tue Dec 13 04:21:56 2005
+From: gtwilliams at berlios.de (gtwilliams at BerliOS)
+Date: Tue, 13 Dec 2005 04:21:56 +0100
+Subject: [Fsfn-svn] r31 - trunk/fsfn
+Message-ID: <200512130321.jBD3LueY006920@sheep.berlios.de>
+
+Author: gtwilliams
+Date: 2005-12-13 04:21:52 +0100 (Tue, 13 Dec 2005)
+New Revision: 31
+
+Modified:
+   trunk/fsfn/Makefile.am
+Log:
+Added fedora/fsfn to EXTRA_DIST.
+
+Really need a detect of distro and appropriate installation in the
+init scripts for that distro.
+
+
+Modified: trunk/fsfn/Makefile.am
+===================================================================
+--- trunk/fsfn/Makefile.am	2005-12-13 03:15:46 UTC (rev 30)
++++ trunk/fsfn/Makefile.am	2005-12-13 03:21:52 UTC (rev 31)
+@@ -2,6 +2,6 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ SUBDIRS      = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf
++EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
+ 
+ ## Makefile.am ends here
+
+
+
+From gtwilliams at berlios.de  Tue Dec 13 04:27:08 2005
+From: gtwilliams at berlios.de (gtwilliams at BerliOS)
+Date: Tue, 13 Dec 2005 04:27:08 +0100
+Subject: [Fsfn-svn] r32 - trunk/fsfn
+Message-ID: <200512130327.jBD3R81n008661@sheep.berlios.de>
+
+Author: gtwilliams
+Date: 2005-12-13 04:26:33 +0100 (Tue, 13 Dec 2005)
+New Revision: 32
+
+Modified:
+   trunk/fsfn/Makefile.in
+Log:
+Regenerated.
+
+Modified: trunk/fsfn/Makefile.in
+===================================================================
+--- trunk/fsfn/Makefile.in	2005-12-13 03:21:52 UTC (rev 31)
++++ trunk/fsfn/Makefile.in	2005-12-13 03:26:33 UTC (rev 32)
+@@ -149,7 +149,7 @@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+ SUBDIRS = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf
++EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
+ all: config.h
+ 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+ 
+@@ -341,7 +341,7 @@
+ distdir: $(DISTFILES)
+ 	$(am__remove_distdir)
+ 	mkdir $(distdir)
+-	$(mkdir_p) $(distdir)/debian $(distdir)/etc $(distdir)/gentoo
++	$(mkdir_p) $(distdir)/debian $(distdir)/etc $(distdir)/fedora $(distdir)/gentoo
+ 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
+ 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
+ 	list='$(DISTFILES)'; for file in $$list; do \
+
+
+
+From muaddib at berlios.de  Tue Dec 13 12:53:51 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Tue, 13 Dec 2005 12:53:51 +0100
+Subject: [Fsfn-svn] r33 - in trunk/fsfn: . src
+Message-ID: <200512131153.jBDBrpWj001196@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-13 12:53:46 +0100 (Tue, 13 Dec 2005)
+New Revision: 33
+
+Modified:
+   trunk/fsfn/Makefile.in
+   trunk/fsfn/aclocal.m4
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/src/Makefile.in
+   trunk/fsfn/src/basicmsg.c
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+Log:
+Removed lost debug line
+Corrected message handling for glibc 2.2 to remove compilation warning
+Added garry to authors in man pages
+Bumped version to 1.0 :)
+
+
+Modified: trunk/fsfn/Makefile.in
+===================================================================
+--- trunk/fsfn/Makefile.in	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/Makefile.in	2005-12-13 11:53:46 UTC (rev 33)
+@@ -1,4 +1,4 @@
+-# Makefile.in generated by automake 1.9.5 from Makefile.am.
++# Makefile.in generated by automake 1.9.6 from Makefile.am.
+ # @configure_input@
+ 
+ # Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+
+Modified: trunk/fsfn/aclocal.m4
+===================================================================
+--- trunk/fsfn/aclocal.m4	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/aclocal.m4	2005-12-13 11:53:46 UTC (rev 33)
+@@ -1,4 +1,4 @@
+-# generated automatically by aclocal 1.9.5 -*- Autoconf -*-
++# generated automatically by aclocal 1.9.6 -*- Autoconf -*-
+ 
+ # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+ # 2005  Free Software Foundation, Inc.
+@@ -28,7 +28,7 @@
+ # Call AM_AUTOMAKE_VERSION so it can be traced.
+ # This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
+ AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
+-	 [AM_AUTOMAKE_VERSION([1.9.5])])
++	 [AM_AUTOMAKE_VERSION([1.9.6])])
+ 
+ # AM_AUX_DIR_EXPAND                                         -*- Autoconf -*-
+ 
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/configure	2005-12-13 11:53:46 UTC (rev 33)
+@@ -719,13 +719,13 @@
+   	  /^X\(\/\).*/{ s//\1/; q; }
+   	  s/.*/./; q'`
+   srcdir=$ac_confdir
+-  if test ! -r $srcdir/$ac_unique_file; then
++  if test ! -r "$srcdir/$ac_unique_file"; then
+     srcdir=..
+   fi
+ else
+   ac_srcdir_defaulted=no
+ fi
+-if test ! -r $srcdir/$ac_unique_file; then
++if test ! -r "$srcdir/$ac_unique_file"; then
+   if test "$ac_srcdir_defaulted" = yes; then
+     { echo "$as_me: error: cannot find sources ($ac_unique_file) in $ac_confdir or .." >&2
+    { (exit 1); exit 1; }; }
+@@ -734,7 +734,7 @@
+    { (exit 1); exit 1; }; }
+   fi
+ fi
+-(cd $srcdir && test -r ./$ac_unique_file) 2>/dev/null ||
++(cd $srcdir && test -r "./$ac_unique_file") 2>/dev/null ||
+   { echo "$as_me: error: sources are in $srcdir, but \`cd $srcdir' does not work" >&2
+    { (exit 1); exit 1; }; }
+ srcdir=`echo "$srcdir" | sed 's%\([^\\/]\)[\\/]*$%\1%'`
+@@ -1615,7 +1615,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=0.4-svn
++ VERSION=1.0
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/configure.in	2005-12-13 11:53:46 UTC (rev 33)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 0.4-svn)
++AM_INIT_AUTOMAKE(fsfn, 1.0)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/src/Makefile.in
+===================================================================
+--- trunk/fsfn/src/Makefile.in	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/src/Makefile.in	2005-12-13 11:53:46 UTC (rev 33)
+@@ -1,4 +1,4 @@
+-# Makefile.in generated by automake 1.9.5 from Makefile.am.
++# Makefile.in generated by automake 1.9.6 from Makefile.am.
+ # @configure_input@
+ 
+ # Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+@@ -15,8 +15,6 @@
+ @SET_MAKE@
+ 
+ 
+-SOURCES = $(fsfn_SOURCES)
+-
+ srcdir = @srcdir@
+ top_srcdir = @top_srcdir@
+ VPATH = @srcdir@
+
+Modified: trunk/fsfn/src/basicmsg.c
+===================================================================
+--- trunk/fsfn/src/basicmsg.c	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/src/basicmsg.c	2005-12-13 11:53:46 UTC (rev 33)
+@@ -127,7 +127,7 @@
+   msg.data.brightness_level = brightness_level;
+   msg.data.sound_level = sound_level;
+ 
+-  if ((msgsnd (msgqueue_id, (struct msgbuf *) &msg,
++  if ((msgsnd (msgqueue_id, (const void*) &msg,
+ 	       sizeof (struct infodata), 0)) == -1)
+     {
+       syslog (LOG_CRIT,"Failed to send message: %m");
+@@ -142,7 +142,7 @@
+   struct basicmsg msg;
+ 
+   msg.mtype = MSG_TYPE_INFO;
+-  if (msgrcv (msgqueue_id, (struct msgbuf *) &msg,
++  if (msgrcv (msgqueue_id, (void*) &msg,
+ 	      sizeof (struct infodata), MSG_TYPE_INFO, 0) == -1)
+     {
+       syslog (LOG_NOTICE,"Failed to get message: %m");
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/src/fsfn.c	2005-12-13 11:53:46 UTC (rev 33)
+@@ -83,9 +83,6 @@
+ 		}
+ 		return 1;
+ 	}
+-	else {
+-		syslog(LOG_INFO,"No config key for %s",key);
+-	}
+ 	return 0;
+   }
+ 
+@@ -211,7 +208,6 @@
+        */
+       if (hasSomething && (key = getCodes ()))
+ 	{
+-	  syslog(LOG_INFO,"fsfn catch %d",key);
+ 	  if ((key & FN_F5) == FN_F5)
+ 	    { 
+ 	      	// check config
+@@ -571,6 +567,8 @@
+ 
+ Spencer Shimko E<lt>spencer at beyondabstraction.netE<gt>
+ 
++Garry Williams E<lt><gtwilliams at gmail.com>E<gt>
++
+ =cut
+ 
+  */
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-13 03:26:33 UTC (rev 32)
++++ trunk/fsfn/src/fsfn.pod	2005-12-13 11:53:46 UTC (rev 33)
+@@ -2,8 +2,8 @@
+ #
+ # $Id$
+ #
+-# Copyright (c) 2005, Pierre Poissinger
+-# <pierre.poissinger at gmail.com>
++# Copyright (c) 2005, Garry Williams 
++# <gtwilliams at gmail.com>
+ #
+ # This program is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+@@ -193,5 +193,7 @@
+ 
+ Spencer Shimko E<lt>spencer at beyondabstraction.netE<gt>
+ 
++Garry Williams E<lt><gtwilliams at gmail.com>E<gt>
++
+ =cut
+ 
+
+
+
+From muaddib at berlios.de  Tue Dec 13 13:22:05 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Tue, 13 Dec 2005 13:22:05 +0100
+Subject: [Fsfn-svn] r34 - trunk/ebuilds/app-misc/fsfn
+Message-ID: <200512131222.jBDCM5av014696@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-13 13:21:58 +0100 (Tue, 13 Dec 2005)
+New Revision: 34
+
+Modified:
+   trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+Log:
+Corrected einfo information
+
+
+Modified: trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-13 11:53:46 UTC (rev 33)
++++ trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-13 12:21:58 UTC (rev 34)
+@@ -28,7 +28,7 @@
+ 	if use xosd; then
+ 		einfo
+ 		einfo "xosd support built in"
+-		einfo "To enable it, please add 'fsfn -i' to your x session"
++		einfo "To enable it, please add 'fsfn -o' to your x session"
+ 		einfo
+ 	fi
+ 
+
+
+
+From gtwilliams at berlios.de  Tue Dec 13 13:29:27 2005
+From: gtwilliams at berlios.de (gtwilliams at BerliOS)
+Date: Tue, 13 Dec 2005 13:29:27 +0100
+Subject: [Fsfn-svn] r35 - trunk/fsfn/src
+Message-ID: <200512131229.jBDCTRYg019832@sheep.berlios.de>
+
+Author: gtwilliams
+Date: 2005-12-13 13:29:18 +0100 (Tue, 13 Dec 2005)
+New Revision: 35
+
+Modified:
+   trunk/fsfn/src/fsfn.pod
+Log:
+Corrected default description for Fn+F12 key.
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-13 12:21:58 UTC (rev 34)
++++ trunk/fsfn/src/fsfn.pod	2005-12-13 12:29:18 UTC (rev 35)
+@@ -146,7 +146,7 @@
+ E<lt>Fn+F12E<gt> key press.  The value should be a path to an
+ executable program.
+ 
+-Default: No action.
++Default: F</bin/hibernate>
+ 
+ =item B<S1_CMD>
+ 
+
+
+
+From muaddib at berlios.de  Wed Dec 14 02:35:00 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Wed, 14 Dec 2005 02:35:00 +0100
+Subject: [Fsfn-svn] r36 - in trunk/ebuilds: . app-laptop/fsfn
+Message-ID: <200512140135.jBE1Z06Y008640@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-14 02:34:48 +0100 (Wed, 14 Dec 2005)
+New Revision: 36
+
+Added:
+   trunk/ebuilds/app-laptop/
+Removed:
+   trunk/ebuilds/app-misc/
+Modified:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.0.ebuild
+Log:
+Gentoo specific: Changed app-misc by app-laptop 
+
+
+Copied: trunk/ebuilds/app-laptop (from rev 35, trunk/ebuilds/app-misc)
+
+Modified: trunk/ebuilds/app-laptop/fsfn/fsfn-1.0.ebuild
+===================================================================
+--- trunk/ebuilds/app-misc/fsfn/fsfn-1.0.ebuild	2005-12-13 12:29:18 UTC (rev 35)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.0.ebuild	2005-12-14 01:34:48 UTC (rev 36)
+@@ -12,7 +12,7 @@
+ 
+ DEPEND="
+ 	xosd? ( >=x11-libs/xosd-2.2.0 )
+-	>=app-misc/sonyacpi-0.1
++	>=app-laptop/sonyacpi-0.1
+ 	dev-lang/perl
+ "
+ 
+
+
+
+From muaddib at berlios.de  Thu Dec 15 23:17:04 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Thu, 15 Dec 2005 23:17:04 +0100
+Subject: [Fsfn-svn] r37 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/src
+Message-ID: <200512152217.jBFMH4po032431@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-15 23:17:03 +0100 (Thu, 15 Dec 2005)
+New Revision: 37
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+Modified:
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/etc/fsfn.conf
+   trunk/fsfn/src/alsasound.c
+   trunk/fsfn/src/alsasound.h
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/osd.c
+   trunk/fsfn/src/readconfig.c
+   trunk/fsfn/src/readconfig.h
+Log:
+Adapted a submitted patch by Sacha Franke <buzzerbeater at gmx.net> and updated man pages about the new features.
+FYI, these changes implement:
+- OSD_MSG_BRIGHT and OSD_MSG_VOLUME : 
+	customizable OSD message. Not used by default
+- OSD_VCOLORZ: A custom OSD color for 0 volume
+	default is red
+- SOUND_STEP: custom value for sound stepping
+
+Bumped svn version to 1.1
+
+Added ebuild for 1.1
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-15 22:17:03 UTC (rev 37)
+@@ -0,0 +1,49 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION="Sony Vaio (FS series) laptop hotkey handler"
++HOMEPAGE="http://developer.berlios.de/projects/fsfn/"
++SRC_URI="http://download.berlios.de/fsfn/${P}.tar.gz"
++
++LICENSE="GPL-2"
++SLOT="0"
++KEYWORDS="~x86"
++IUSE="xosd"
++
++DEPEND="
++	xosd? ( >=x11-libs/xosd-2.2.0 )
++	>=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++"
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf="${my_conf} --disable-xosd"
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo "xosd support built in"
++		einfo "To enable it, please add 'fsfn -o' to your x session"
++		einfo
++	fi
++
++	./configure ${my_conf} || die "configuration failed"
++
++	emake || die "make of fsfn failed"
++}
++
++src_install() {
++	make DESTDIR="${D}" install || die "Installation failed!"
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo "You can use /etc/init.d/fsfn script to start fsfn"
++	einfo
++}
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/configure	2005-12-15 22:17:03 UTC (rev 37)
+@@ -1615,7 +1615,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=1.0
++ VERSION=1.1
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/configure.in	2005-12-15 22:17:03 UTC (rev 37)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 1.0)
++AM_INIT_AUTOMAKE(fsfn, 1.1)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/etc/fsfn.conf	2005-12-15 22:17:03 UTC (rev 37)
+@@ -1,11 +1,15 @@
+ # device
+ #DEVICE=/dev/input/event1
+ #ALSA_NAME=Front
+-# osd looks
++SOUND_STEP=8
++#osd looks
+ #OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
+-#OSD_VCOLOR=green
+-#OSD_BCOLOR=yellow
+-# scripts
++OSD_VCOLOR=green
++OSD_VCOLORZ=red
++OSD_BCOLOR=blue
++OSD_TIME=1
++OSD_LEVEL=1
++#scripts
+ #F2_CMD=
+ #F3_CMD=
+ #F4_CMD=
+
+Modified: trunk/fsfn/src/alsasound.c
+===================================================================
+--- trunk/fsfn/src/alsasound.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/alsasound.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -194,34 +194,30 @@
+ }
+ 
+ int
+-volume_up ()
++volume_up (int step)
+ {
+   int value = 0;
+ 
+   get_volume (&value);
+ 
+-  if (value < 100)
+-  {
+-	  if (value > 90) {
+-		value=100;
+-	  }
+-  	  else value += 10;
+-  }
++//rewritten by SilSha
++  if (value <= 100-step)
++	value += step;
+   else
+-    value = 100;
++	value=100;
+ 
+   return set_volume (&value);
+ }
+ 
+ int
+-volume_down ()
++volume_down (int step)
+ {
+   int value = 0;
+ 
+   get_volume (&value);
+ 
+-  if (value > 9)
+-    value -= 10;
++  if (value >= step)
++    value -= step; //mod by SilSha
+   else
+     value = 0;
+ 
+@@ -230,7 +226,7 @@
+ 
+ static int oldvalue;
+ int
+-mute ()
++mute (int step)	//mod by SilSha
+ {
+   int value;
+ 
+@@ -251,7 +247,7 @@
+ 
+   if (!oldvalue)
+     {
+-      return volume_up ();
++      return volume_up (step);	//mod by SilSha
+     }
+ 
+   return set_volume (&oldvalue);
+
+Modified: trunk/fsfn/src/alsasound.h
+===================================================================
+--- trunk/fsfn/src/alsasound.h	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/alsasound.h	2005-12-15 22:17:03 UTC (rev 37)
+@@ -23,8 +23,8 @@
+ 
+ int get_volume(int *value);
+ int set_volume(int *value);
+-int volume_up();
+-int volume_down();
+-int mute();
++int volume_up(int step);	//mod by SilSha
++int volume_down(int step);
++int mute(int step);
+ 
+ #endif
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/fsfn.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -51,6 +51,8 @@
+ #include "osd.h"
+ #endif
+ 
++#define SOUND_STEP	getConfigInt("SOUND_STEP") //mod by SilSha
++
+ #define MAX_DEVINPUT_SIZE	255
+ static char devinput[MAX_DEVINPUT_SIZE];
+ 
+@@ -247,10 +249,10 @@
+ 		  {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = mute ();
++	      		sound = mute (SOUND_STEP);
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		mute ();			
++	      		mute (SOUND_STEP);			
+ #endif
+ 		  }
+ 	    }
+@@ -260,10 +262,10 @@
+ 	          {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = volume_down ();
++	      		sound = volume_down (SOUND_STEP);	//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		volume_down ();
++	      		volume_down (SOUND_STEP);
+ #endif
+ 		  }
+ 	    }
+@@ -273,10 +275,10 @@
+ 	         {
+ #ifdef HAVE_LIBXOSD
+ 	      		flag = MOD_SOUND;
+-	      		sound = volume_up ();
++	      		sound = volume_up (SOUND_STEP);		//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
+ #else
+-	      		volume_up ();
++	      		volume_up (SOUND_STEP);
+ #endif
+ 		 }	
+ 	    }
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/fsfn.pod	2005-12-15 22:17:03 UTC (rev 37)
+@@ -58,6 +58,12 @@
+ 
+ Default: B<Front>.
+ 
++=item B<SOUND_STEP>
++
++The B<SOUND_STEP> keyword is used to specify the incrementation/decrementation to use in volume change. It is exprimed in percent.
++
++Default:B<10>
++
+ =item B<OSD_VCOLOR>
+ 
+ The B<OSD_VCOLOR> keyword is used to specify the OSD color for the
+@@ -65,6 +71,12 @@
+ 
+ Default: B<red>
+ 
++=item B<OSD_VCOLORZ>
++
++The B<OSD_VCOLORZ> keyword is used to specify the OSD color for a muted volume display.
++
++Default: B<red>
++
+ =item B<OSD_BCOLOR>
+ 
+ The B<OSD_BCOLOR> keyword is used to specify the OSD color for the
+@@ -80,6 +92,25 @@
+ 
+ Default: B<-*-*-*-*-*-*-20-*-*-*-*-*-*-*>
+ 
++=item B<OSD_TIMEOUT>
++
++The B<OSD_TIMEOUT> keyword is used to specifiy the OSD timeout exprimed in seconds
++
++Default: B<3>
++
++=item B<OSD_MSG_VOLUME>
++
++The B<OSD_MSG_VOLUME> keyword allows to set a non-standard OSD volume message. The special value B<%d> will be replaced by the current volume. 
++
++Default: B<Volume>
++
++=item B<OSD_MSG_BRIGHT>
++
++The B<OSD_MSG_BRIGHT> keyword allows to set a non-standard OSD brightness message. The special value B<%d> will be replaced by the current brightness. 
++
++Default: B<Brightness>
++
++
+ =item B<F2_CMD>
+ 
+ The B<F2_CMD> keyword is used to specify alternate action for the
+@@ -166,8 +197,10 @@
+ 
+   DEVICE=AUTO
+   OSD_VCOLOR=green
++  OSD_VCOLORZ=red
+   OSD_BCOLOR=yellow
+   OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
++  OSD_MSG_VOLUME=Volume (%d)
+   F12_CMD=/usr/local/bin/my_hibernate
+ 
+ =head1 FILES
+
+Modified: trunk/fsfn/src/osd.c
+===================================================================
+--- trunk/fsfn/src/osd.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/osd.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -26,6 +26,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <errno.h>
+ #include <xosd.h>
+ #include <locale.h>
+@@ -37,14 +38,20 @@
+ 
+ // the volume osd color
+ #define OSD_VCOLOR 	getConfig("OSD_VCOLOR")
++//the volume osd color when volume is set to zero
++#define OSD_VCOLORZ 	getConfig("OSD_VCOLORZ")
+ // the brightness osd color
+ #define OSD_BCOLOR 	getConfig("OSD_BCOLOR")
+ // the osd font... change the 7th position for size
+ // or use xfontsel to explore the options
+ #define OSD_FONT 	getConfig("OSD_FONT")
+ // the length of time the osd is shown
+-#define OSD_TIME 3
++#define OSD_TIMEOUT	getConfigInt("OSD_TIMEOUT")
++// Custom messages (based on SilSha idea)
++#define OSD_MSG_BRIGHT	getConfig("OSD_MSG_BRIGHT")
++#define OSD_MSG_VOLUME	getConfig("OSD_MSG_VOLUME")		
+ 
++
+ // volume scaling factor for OSD
+ #define OSD_VSCALE 250
+ 
+@@ -80,7 +87,34 @@
+     }
+ }
+ 
++// loop the string to check for potential security issue.
++// TODO: this code should be reviewed - dirty hack to avoid rerun
++int
++validate_osd_message(char* message) {
++	int i;
++	int maxsize=strlen(message);
++	int count=0;
++	for (i=0;i<maxsize-1;i++) {
++		if (message[i]=='%') {
++			if ( (i) && message[i-1]=='\\') { // escaped, do not care
++				continue; 
++			}
++			else {
++				if (message[i+1]!='d') {
++					return 0; // a non escaped non dec. ==> incorrect
++				}
++				count++;
++				if (count > 1) { // more than 1
++					return 0;
++				}
++			}
++		}
++	}
++	return 1;
++}
+ 
++int bright_validated=0; // to keep validation status
++
+ int
+ osd_brightness (int level)
+ {
+@@ -105,7 +139,7 @@
+   retval |= xosd_set_outline_offset (disp_obj, 1);
+   retval |= xosd_set_vertical_offset (disp_obj, 30);
+   retval |= xosd_set_colour (disp_obj, OSD_BCOLOR);
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIME);
++  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+   
+   retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
+ 
+@@ -131,8 +165,38 @@
+ 	{
+ 	  pos = level * inc_size - inc_size;
+ 	}
++
+       retval = xosd_display (disp_obj, 0, XOSD_slider, pos);
+-      retval = xosd_display (disp_obj, 1, XOSD_string, "Brightness");
++
++	if (OSD_MSG_BRIGHT) // we got a message
++	{
++		char message[255];
++		if (bright_validated || validate_osd_message(OSD_MSG_BRIGHT)) {
++			bright_validated=1;
++			if (snprintf(message,255,OSD_MSG_BRIGHT,level)>0) {
++				retval = xosd_display (disp_obj, 1, XOSD_string,message);
++			}
++			else {
++				syslog(LOG_NOTICE,
++			       		"Failed to display custom message for brightness");
++				// try hardcoded one
++				retval = xosd_display (disp_obj, 1, XOSD_string,"Brightness");
++			};
++		}
++		else {
++			syslog(LOG_NOTICE,
++					"OSD_MSG_BRIGHT value is invalid");
++			// invalidate OSD_MSG_BRIGHT
++			setConfig("OSD_MSG_BRIGHT",NULL);
++
++			retval = xosd_display (disp_obj, 1, XOSD_string,"Brightness"); // use default
++		}
++
++	}
++	else {
++		retval = xosd_display (disp_obj, 1, XOSD_string,"Brightness");
++	}
++
+       if (retval == -1)
+ 	{
+ 	  syslog (LOG_NOTICE,
+@@ -147,13 +211,14 @@
+   return 1;
+ }
+ 
++int volume_validated=0; // remember if already validated
++
+ int
+ osd_volume (int level)
+ {
+   int retval = 0;
+   int retval_nc = 0; // non critical errors
+ 
+-
+   // create if needed
+   if (!osd_load ())
+     {
+@@ -168,9 +233,14 @@
+   retval |= xosd_set_align (disp_obj, XOSD_center);
+   retval |= xosd_set_shadow_offset (disp_obj, 1);
+   retval |= xosd_set_outline_offset (disp_obj, 1);
+-  retval |= xosd_set_vertical_offset (disp_obj, 30);
++  retval |= xosd_set_vertical_offset (disp_obj, 30);	//mod by SilSha
++  if (level == 0) {  
++  	retval |= xosd_set_colour (disp_obj, OSD_VCOLORZ);
++  }
++  else {
+   retval |= xosd_set_colour (disp_obj, OSD_VCOLOR);
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIME);
++  }
++  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+   
+   retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
+ 
+@@ -188,9 +258,37 @@
+       	syslog (LOG_CRIT, "Failed non-critical setup onscreen display: %s\n", xosd_error);
+       }
+ 
+-//      retval = xosd_display (disp_obj, 0, XOSD_slider, level / OSD_VSCALE);
+       retval = xosd_display (disp_obj, 0, XOSD_slider, level);
+-      retval = xosd_display (disp_obj, 1, XOSD_string, "Volume");
++
++
++	if (OSD_MSG_VOLUME) // we got a message
++	{
++		if (volume_validated || validate_osd_message(OSD_MSG_VOLUME)) {
++			char message[255];
++			volume_validated=1; // no need to revalidate
++			if (snprintf(message,255,OSD_MSG_VOLUME,level) > 0) {
++				retval = xosd_display (disp_obj, 1, XOSD_string,message);
++			}
++			else {
++				syslog(LOG_NOTICE,
++			       		"Failed to display custom message for volume");
++				// try hardcoded one
++				retval = xosd_display (disp_obj, 1, XOSD_string,"Volume");
++			}
++		}
++		else {
++			syslog(LOG_NOTICE,
++					"OSD_MSG_VOLUME value is invalid");
++			// invalidate OSD_MSG_VOLUME
++			setConfig("OSD_MSG_VOLUME",NULL);
++			retval = xosd_display (disp_obj, 1, XOSD_string,"Volume"); // use default
++
++		}
++	}
++	else {
++		retval = xosd_display (disp_obj, 1, XOSD_string,"Volume");
++	}
++              
+       if (retval == -1)
+ 	{
+ 	  syslog (LOG_NOTICE,
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/readconfig.c	2005-12-15 22:17:03 UTC (rev 37)
+@@ -34,73 +34,115 @@
+ struct config_entry {
+ 	char* name;
+ 	char* value;
++	int*  ivalue; // to hold possible int 
+ } config_list[] = 
+ {
+ 	// keys
+ 	{
+ 		.name = "F2_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F3_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F4_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F5_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F6_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F7_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F10_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "F12_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "S1_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "S2_CMD",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	// OSD
+ 	{
+ 		.name = "OSD_FONT",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
+ 		.name = "OSD_VCOLOR",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
++		.name = "OSD_VCOLORZ",
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
+ 		.name = "OSD_BCOLOR",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
++	{
++		.name = "OSD_TIMEOUT",
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
++		.name = "OSD_MSG_BRIGHT",
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
++		.name = "OSD_MSG_VOLUME",
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++
+ 	// DEVICE
+ 	{
+ 		.name = "DEVICE",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	// ALSA
+ 	{
+ 		.name = "ALSA_NAME",
+ 		.value = NULL,
++		.ivalue = NULL, 
+ 	},
+ 	{
++		.name = "SOUND_STEP",	/*mode by SilSha*/
++		.value = NULL,
++		.ivalue = NULL, 
++	},
++	{
+ 		.name = NULL
+ 	}
+ };
+@@ -127,6 +169,21 @@
+ 	return NULL;
+ }
+ 
++int getConfigValueInt(char* key) {
++	struct config_entry* it;
++	for (it=config_list; it->name; it++) {
++		if (!strcasecmp(it->name,key)) {
++			if (it->ivalue==NULL) { // lazy convert
++				it->ivalue = (int*) malloc(sizeof(int));
++				it->ivalue[0] = atoi(it->value);
++			}
++			return it->ivalue[0];
++		}
++	}
++
++	return 0;
++}
++
+ // set a config key
+ int setConfigValue(char*key,char* value) {
+ 	struct config_entry* it;
+@@ -136,8 +193,14 @@
+ 				free(it->value);
+ 				it->value=NULL; // to keep clean...
+ 			}
+-			it->value=(char*)malloc(strlen(value)+1);
+-			strcpy(it->value,value);
++			if (it->ivalue!=NULL) { // clean int buffer
++				free(it->ivalue);
++				it->ivalue=NULL;
++			}
++			if (value!=NULL) { // only if value is not null
++				it->value=(char*)malloc(strlen(value)+1);
++				strcpy(it->value,value);
++			}
+ 			return 1;
+ 		}
+ 	}
+@@ -182,10 +245,13 @@
+ 	syslog(LOG_INFO,"Setting default configuration");
+ 	proceedConfig("DEVICE","AUTO");
+ 	proceedConfig("ALSA_NAME","Front");
++	proceedConfig("SOUND_STEP","10");		/*mod by SilSha*/
+ 	proceedConfig("F12_CMD","/bin/hibernate");
+ 	proceedConfig("OSD_VCOLOR","red");
++	proceedConfig("OSD_VCOLORZ","red");
+ 	proceedConfig("OSD_BCOLOR","blue");
+ 	proceedConfig("OSD_FONT","-*-*-*-*-*-*-20-*-*-*-*-*-*-*");
++	proceedConfig("OSD_TIMEOUT","3");
+ 	syslog(LOG_INFO,"default configuration done");
+   }
+ 
+@@ -256,6 +322,10 @@
+ 			free(it->value);
+ 			it->value=NULL;
+ 		}
++		if (it->ivalue) {
++			free(it->ivalue);
++			it->ivalue=NULL;
++		}
+ 	}
+ 	_config_loaded=0;
+ }
+@@ -265,3 +335,13 @@
+ 	loadConfig();
+ 	return getConfigValue(key);
+ }
++
++int getConfigInt(char* key) {
++	loadConfig();
++	return getConfigValueInt(key);
++}
++
++int setConfig(char* key,char* value) {
++	loadConfig();
++	return setConfigValue(key,value);
++}
+
+Modified: trunk/fsfn/src/readconfig.h
+===================================================================
+--- trunk/fsfn/src/readconfig.h	2005-12-14 01:34:48 UTC (rev 36)
++++ trunk/fsfn/src/readconfig.h	2005-12-15 22:17:03 UTC (rev 37)
+@@ -25,6 +25,11 @@
+ void releaseConfig();
+ 
+ char* getConfig(char*);
++int   getConfigInt(char* key); // same as previous, but return an int
++int   getConfigValueBool(char* key); // same as previous, but return a bool
++
++int   setConfig(char* key,char* value); // set a config
++
+ #define USER_CONFIG_FILE	"/etc/fsfn.conf"
+ 
+ 
+
+
+
+From muaddib at berlios.de  Thu Dec 15 23:19:06 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Thu, 15 Dec 2005 23:19:06 +0100
+Subject: [Fsfn-svn] r38 - trunk/fsfn/etc
+Message-ID: <200512152219.jBFMJ6gu032657@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-15 23:19:05 +0100 (Thu, 15 Dec 2005)
+New Revision: 38
+
+Modified:
+   trunk/fsfn/etc/fsfn.conf
+Log:
+Corrected fsfn.conf for OSD_TIMEOUT (another new feature from previous patch)
+
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2005-12-15 22:17:03 UTC (rev 37)
++++ trunk/fsfn/etc/fsfn.conf	2005-12-15 22:19:05 UTC (rev 38)
+@@ -7,7 +7,7 @@
+ OSD_VCOLOR=green
+ OSD_VCOLORZ=red
+ OSD_BCOLOR=blue
+-OSD_TIME=1
++OSD_TIMEOUT=1
+ OSD_LEVEL=1
+ #scripts
+ #F2_CMD=
+
+
+
+From muaddib at berlios.de  Thu Dec 15 23:32:32 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Thu, 15 Dec 2005 23:32:32 +0100
+Subject: [Fsfn-svn] r39 - trunk/fsfn
+Message-ID: <200512152232.jBFMWW0e001523@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-15 23:32:31 +0100 (Thu, 15 Dec 2005)
+New Revision: 39
+
+Modified:
+   trunk/fsfn/AUTHORS
+Log:
+Added a "code contributors" to AUTHORS and added the name of Sascha Franke.  
+
+
+Modified: trunk/fsfn/AUTHORS
+===================================================================
+--- trunk/fsfn/AUTHORS	2005-12-15 22:19:05 UTC (rev 38)
++++ trunk/fsfn/AUTHORS	2005-12-15 22:32:31 UTC (rev 39)
+@@ -1,3 +1,9 @@
++Main authors
++------------
+ Pierre Poissinger <pierre.poissinger at gmail.com>
+ Spencer Shimko <spencer at beyondabstraction.net>
+ Garry Williams <gtwilliams at gmail.com>
++
++Code Contributions
++------------------
++Sascha Franke <buzzerbeater at gmx.net>
+
+
+
+From muaddib at berlios.de  Sun Dec 18 02:04:27 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Sun, 18 Dec 2005 02:04:27 +0100
+Subject: [Fsfn-svn] r40 - trunk/fsfn/src
+Message-ID: <200512180104.jBI14Rih031171@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-18 02:03:57 +0100 (Sun, 18 Dec 2005)
+New Revision: 40
+
+Modified:
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/osd.c
+Log:
+Corrected osd custom string check to allow to enter a % sign and included the info in the man 5
+
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-15 22:32:31 UTC (rev 39)
++++ trunk/fsfn/src/fsfn.pod	2005-12-18 01:03:57 UTC (rev 40)
+@@ -100,7 +100,7 @@
+ 
+ =item B<OSD_MSG_VOLUME>
+ 
+-The B<OSD_MSG_VOLUME> keyword allows to set a non-standard OSD volume message. The special value B<%d> will be replaced by the current volume. 
++The B<OSD_MSG_VOLUME> keyword allows to set a non-standard OSD volume message. The special value B<%d> will be replaced by the current volume. (To include a % sign, use %%) 
+ 
+ Default: B<Volume>
+ 
+
+Modified: trunk/fsfn/src/osd.c
+===================================================================
+--- trunk/fsfn/src/osd.c	2005-12-15 22:32:31 UTC (rev 39)
++++ trunk/fsfn/src/osd.c	2005-12-18 01:03:57 UTC (rev 40)
+@@ -100,14 +100,19 @@
+ 				continue; 
+ 			}
+ 			else {
+-				if (message[i+1]!='d') {
++				if ((message[i+1]!='d')&&(message[i+1]!='%')) {
+ 					return 0; // a non escaped non dec. ==> incorrect
+ 				}
+-				count++;
+-				if (count > 1) { // more than 1
+-					return 0;
++				else {
++					if (message[i+1]=='d') {
++						count++;
++					}
++					if (count > 1) { // more than 1
++						return 0;
++					}
+ 				}
+ 			}
++			i++;
+ 		}
+ 	}
+ 	return 1;
+
+
+
+From muaddib at berlios.de  Mon Dec 19 22:25:14 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Mon, 19 Dec 2005 22:25:14 +0100
+Subject: [Fsfn-svn] r41 - trunk/fsfn/src
+Message-ID: <200512192125.jBJLPENS004241@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-19 22:25:13 +0100 (Mon, 19 Dec 2005)
+New Revision: 41
+
+Modified:
+   trunk/fsfn/src/acpihandler.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/readconfig.c
+Log:
+In order to possibly fix problems for FJS (bug #5926), added 2 config options:
+BRT_SETDEFAULT ==> force the write to brightness to default as well. This is know to make fsfn works on Sony PCG K15
+BRT_HACK_FJS ==> Do not read brightness from ACPI but use a internal value
+
+tarball sended to a tester
+
+
+
+Modified: trunk/fsfn/src/acpihandler.c
+===================================================================
+--- trunk/fsfn/src/acpihandler.c	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/acpihandler.c	2005-12-19 21:25:13 UTC (rev 41)
+@@ -30,9 +30,12 @@
+ #include <fcntl.h>
+ #include <syslog.h>
+ 
++#include "readconfig.h"
+ #include "acpihandler.h"
+ #include "generics.h"
+ 
++
++int _brightness=-1; /* for FSJ laptops (they don't return current brightness) */
+ /*
+  * Return current brightness of the screen 
+  */
+@@ -42,6 +45,16 @@
+   FILE *handle;
+   int ret;
+ 
++  if (getConfigInt("BRT_HACK_FJS"))
++  {
++	syslog (LOG_NOTICE,"FSJ HACK:current brightness %d",_brightness); 
++	if (_brightness < 0) 
++	{
++		_brightness=getConfigInt("BRT_HACK_FJS");
++	}
++	return _brightness;
++  }
++
+   if ((handle = fopen ("/proc/acpi/sony/brightness", "rb")) == NULL)
+     {
+       syslog (LOG_CRIT,"Error opening /proc/acpi/sony/brightness: %m");
+@@ -53,10 +66,11 @@
+       exit (-1);
+     }
+   fclose (handle);
++
+   return ret;
+-
+ }
+ 
++
+ /*
+  * Set the current brightness of the screen 
+  */
+@@ -82,10 +96,33 @@
+     }
+   if (fprintf (handle, "%d", b) != 1)
+     {
+-      syslog (LOG_CRIT,"Error reading /proc/acpi/sony/brightness: %m");
++      syslog (LOG_CRIT,"Error writing /proc/acpi/sony/brightness: %m");
+       exit (-1);
+     }
+   fclose (handle);
++
++  if (getConfigInt("BRT_SETDEFAULT")) 
++    {
++	  syslog (LOG_INFO,"Writing to default brigthness");
++	  if ((handle = fopen ("/proc/acpi/sony/brightness_default", "wb")) == NULL)
++		{
++		  syslog (LOG_CRIT,"Error opening /proc/acpi/sony/brightness_default: %m");
++		  exit (-1);
++		}
++	  if (fprintf (handle, "%d", b) != 1)
++		{
++		  syslog (LOG_CRIT,"Error writing /proc/acpi/sony/brightness_default: %m");
++		  exit (-1);
++		}
++	  fclose (handle);
++    }
++  
++  if (getConfigInt("BRT_HACK_FJS")) 
++    {
++		syslog (LOG_NOTICE,"FSJ HACK: brightnes set to %d",b); 
++		_brightness=b; // store new value
++    }
++
+   return b;
+ }
+ 
+@@ -100,12 +137,12 @@
+   int ret;
+   if ((handle = fopen ("/proc/acpi/sony/fnkey", "rb")) == NULL)
+     {
+-      syslog (LOG_CRIT,"Error opening /proc/acpi/sony/brightness: %m");
++      syslog (LOG_CRIT,"Error opening /proc/acpi/sony/fnkey: %m");
+       exit (-1);
+     }
+   if (fscanf (handle, "%d", &ret) != 1)
+     {
+-      syslog (LOG_CRIT,"Error reading /proc/acpi/sony/brightness: %m");
++      syslog (LOG_CRIT,"Error reading /proc/acpi/sony/fnkey: %m");
+       exit (-1);
+     }
+   fclose (handle);
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/fsfn.pod	2005-12-19 21:25:13 UTC (rev 41)
+@@ -191,6 +191,18 @@
+ E<lt>S2E<gt> key press.  The value should be a path to an
+ executable program.
+ 
++=item B<BRT_SETDEFAULT>
++
++The B<BRT_SETDEFAULT> keyword is used to specify if the default brightness should be set with brightness. The value should be 0 for no, 1 for yes.
++
++Default: 0
++
++=item B<BRT_HACK_FJS>
++
++The B<BRT_HACK_FJS> keyword is used to specify if fsfn should use a workaround for setting brightness on your laptop. The value should be 0 (to not use) or the value to use as default brightness (from 1 to 8).
++
++Default: 0
++
+ =back
+ 
+ =head1 EXAMPLE
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2005-12-18 01:03:57 UTC (rev 40)
++++ trunk/fsfn/src/readconfig.c	2005-12-19 21:25:13 UTC (rev 41)
+@@ -142,7 +142,19 @@
+ 		.value = NULL,
+ 		.ivalue = NULL, 
+ 	},
++	// SET DEFAULT device aswell
+ 	{
++		.name = "BRT_SETDEFAULT", 
++		.value = NULL,
++		.ivalue = NULL,
++	}, 
++	// HACK for FSJ
++	{
++		.name = "BRT_HACK_FJS",
++		.value = NULL,
++		.ivalue = NULL,
++	},
++	{
+ 		.name = NULL
+ 	}
+ };
+@@ -166,6 +178,8 @@
+ 			return it->value;
+ 		}
+ 	}
++
++	syslog(LOG_NOTICE,"%s value not found",key);
+ 	return NULL;
+ }
+ 
+@@ -180,7 +194,8 @@
+ 			return it->ivalue[0];
+ 		}
+ 	}
+-
++	
++	syslog(LOG_NOTICE,"%s value not found",key);
+ 	return 0;
+ }
+ 
+@@ -204,6 +219,8 @@
+ 			return 1;
+ 		}
+ 	}
++	
++	syslog(LOG_NOTICE,"%s value not found",key);
+ 	return -1;
+ }
+ 
+@@ -252,6 +269,8 @@
+ 	proceedConfig("OSD_BCOLOR","blue");
+ 	proceedConfig("OSD_FONT","-*-*-*-*-*-*-20-*-*-*-*-*-*-*");
+ 	proceedConfig("OSD_TIMEOUT","3");
++	proceedConfig("BRT_SETDEFAULT","0"); 		// force new default value
++	proceedConfig("BRT_HACK_FJS","0");
+ 	syslog(LOG_INFO,"default configuration done");
+   }
+ 
+
+
+
+From muaddib at berlios.de  Thu Dec 22 01:56:52 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Thu, 22 Dec 2005 01:56:52 +0100
+Subject: [Fsfn-svn] r42 - in trunk: ebuilds/app-laptop/fsfn fsfn/gentoo
+Message-ID: <200512220056.jBM0uqkV028730@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-22 01:56:13 +0100 (Thu, 22 Dec 2005)
+New Revision: 42
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild
+Modified:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+   trunk/fsfn/gentoo/fsfn
+Log:
+Correction for bug 5951
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.0-r1.ebuild	2005-12-22 00:56:13 UTC (rev 42)
+@@ -0,0 +1,54 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION="Sony Vaio (FS series) laptop hotkey handler"
++HOMEPAGE="http://developer.berlios.de/projects/fsfn/"
++SRC_URI="http://download.berlios.de/fsfn/${P}.tar.gz"
++
++LICENSE="GPL-2"
++SLOT="0"
++KEYWORDS="~x86"
++IUSE="xosd"
++
++DEPEND="
++	xosd? ( >=x11-libs/xosd-2.2.0 )
++	>=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++"
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}
++	
++	# fix dir for bug 5951
++	sed -i \
++		-e "s:/usr/local/bin:/usr/bin:g" \
++		${S}/gentoo/fsfn
++}
++
++src_compile () {
++	use xosd || my_conf="${my_conf} --disable-xosd"
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo "xosd support built in"
++		einfo "To enable it, please add 'fsfn -o' to your x session"
++		einfo
++	fi
++
++	econf ${my_conf} || die "configuration failed"
++
++	emake || die "make of fsfn failed"
++}
++
++src_install() {
++	make DESTDIR="${D}" install || die "Installation failed!"
++	cd ${S}/gentoo
++	exeinto /etc/init.d/
++	newexe ${S}/gentoo/fsfn fsfn || die
++	
++	einfo
++	einfo "You can use /etc/init.d/fsfn script to start fsfn"
++	einfo
++}
+
+Modified: trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-22 00:56:13 UTC (rev 42)
+@@ -32,7 +32,7 @@
+ 		einfo
+ 	fi
+ 
+-	./configure ${my_conf} || die "configuration failed"
++	econf ${my_conf} || die "configuration failed"
+ 
+ 	emake || die "make of fsfn failed"
+ }
+
+Modified: trunk/fsfn/gentoo/fsfn
+===================================================================
+--- trunk/fsfn/gentoo/fsfn	2005-12-19 21:25:13 UTC (rev 41)
++++ trunk/fsfn/gentoo/fsfn	2005-12-22 00:56:13 UTC (rev 42)
+@@ -20,7 +20,7 @@
+ 	start-stop-daemon --start \
+ 		--nicelevel 10 \
+ 		--pidfile /var/run/fsfn.pid \
+-		-x "/usr/local/bin/fsfn"
++		-x "/usr/bin/fsfn"
+ 	eend $?
+ }
+ 
+
+
+
+From muaddib at berlios.de  Fri Dec 23 15:39:29 2005
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Fri, 23 Dec 2005 15:39:29 +0100
+Subject: [Fsfn-svn] r43 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/debian fsfn/fedora fsfn/gentoo
+Message-ID: <200512231439.jBNEdTWR025225@sheep.berlios.de>
+
+Author: muaddib
+Date: 2005-12-23 15:39:27 +0100 (Fri, 23 Dec 2005)
+New Revision: 43
+
+Added:
+   trunk/fsfn/debian/fsfn-conf
+   trunk/fsfn/fedora/fsfn-conf
+   trunk/fsfn/gentoo/fsfn-conf
+Modified:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+   trunk/fsfn/AUTHORS
+   trunk/fsfn/debian/fsfn
+   trunk/fsfn/fedora/fsfn
+   trunk/fsfn/gentoo/fsfn
+Log:
+merged patch #764 from chewi
+see http://developer.berlios.de/patch/?func=detailpatch&patch_id=764&group_id=4604
+
+
+Modified: trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.1.ebuild	2005-12-23 14:39:27 UTC (rev 43)
+@@ -39,9 +39,8 @@
+ 
+ src_install() {
+ 	make DESTDIR="${D}" install || die "Installation failed!"
+-	cd ${S}/gentoo
+-	exeinto /etc/init.d/
+-	newexe ${S}/gentoo/fsfn fsfn || die
++	doinitd gentoo/fsfn
++	newconfd gentoo/fsfn-conf fsfn
+ 	
+ 	einfo
+ 	einfo "You can use /etc/init.d/fsfn script to start fsfn"
+
+Modified: trunk/fsfn/AUTHORS
+===================================================================
+--- trunk/fsfn/AUTHORS	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/AUTHORS	2005-12-23 14:39:27 UTC (rev 43)
+@@ -7,3 +7,4 @@
+ Code Contributions
+ ------------------
+ Sascha Franke <buzzerbeater at gmx.net>
++James Le Cuirot <chewi at users.berlios.de>
+
+Modified: trunk/fsfn/debian/fsfn
+===================================================================
+--- trunk/fsfn/debian/fsfn	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/debian/fsfn	2005-12-23 14:39:27 UTC (rev 43)
+@@ -4,6 +4,8 @@
+ 
+ PATH=/sbin:/bin
+ 
++if [ -r /etc/default/fsfn ]; then . /etc/default/fsfn; fi
++
+ . /lib/lsb/init-functions
+ 
+ if ! test -e /proc/acpi/sony/fnkey ; then
+@@ -19,6 +21,12 @@
+                     --pidfile /var/run/fsfn.pid \
+                     -x "/usr/local/bin/fsfn"
+         log_end_msg $?
++		
++        if [ -n "${SCANCODE}" ] && [ -n "${KEYCODE}" ] ; then
++                log_begin_msg "Suppressing function key kernel output"
++                /usr/bin/setkeycodes "${SCANCODE}" "${KEYCODE}"
++                log_end_msg $?
++        fi
+     ;;
+     stop)
+         log_begin_msg "Stopping fsfn key handler"
+
+Added: trunk/fsfn/debian/fsfn-conf
+===================================================================
+--- trunk/fsfn/debian/fsfn-conf	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/debian/fsfn-conf	2005-12-23 14:39:27 UTC (rev 43)
+@@ -0,0 +1,7 @@
++# When a function key combination is pressed, some kernel output is usually
++# generated because there is no binding for that scancode. To prevent filling up
++# your kernel logs with unnecessary output, uncomment the following two lines
++# and adjust them if needed. 112 should be a safe keycode in most cases.
++
++#SCANCODE=e075
++#KEYCODE=112
+
+Modified: trunk/fsfn/fedora/fsfn
+===================================================================
+--- trunk/fsfn/fedora/fsfn	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/fedora/fsfn	2005-12-23 14:39:27 UTC (rev 43)
+@@ -21,6 +21,10 @@
+ # Source function library.
+ . /etc/rc.d/init.d/functions
+ 
++if [ -f /etc/sysconfig/fsfn ]; then
++        . /etc/sysconfig/fsfn
++fi
++
+ RETVAL=0
+ 
+ start() {
+@@ -32,6 +36,13 @@
+ 	    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/fsfn
+ 	    echo
+ 	fi
++	
++	if [ -n "${SCANCODE}" ] && [ -n "${KEYCODE}" ] ; then
++	    echo -n $"Suppressing function key kernel output: "
++	    /usr/bin/setkeycodes "${SCANCODE}" "${KEYCODE}"
++		echo
++	fi
++	
+ 	return $RETVAL
+ }
+ 
+
+Added: trunk/fsfn/fedora/fsfn-conf
+===================================================================
+--- trunk/fsfn/fedora/fsfn-conf	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/fedora/fsfn-conf	2005-12-23 14:39:27 UTC (rev 43)
+@@ -0,0 +1,7 @@
++# When a function key combination is pressed, some kernel output is usually
++# generated because there is no binding for that scancode. To prevent filling up
++# your kernel logs with unnecessary output, uncomment the following two lines
++# and adjust them if needed. 112 should be a safe keycode in most cases.
++
++#SCANCODE=e075
++#KEYCODE=112
+
+Modified: trunk/fsfn/gentoo/fsfn
+===================================================================
+--- trunk/fsfn/gentoo/fsfn	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/gentoo/fsfn	2005-12-23 14:39:27 UTC (rev 43)
+@@ -22,6 +22,12 @@
+ 		--pidfile /var/run/fsfn.pid \
+ 		-x "/usr/bin/fsfn"
+ 	eend $?
++	
++	if [ -n "${SCANCODE}" ] && [ -n "${KEYCODE}" ] ; then
++		ebegin "Suppressing function key kernel output"
++		/usr/bin/setkeycodes "${SCANCODE}" "${KEYCODE}"
++		eend $?
++	fi
+ }
+ 
+ stop() {
+
+Added: trunk/fsfn/gentoo/fsfn-conf
+===================================================================
+--- trunk/fsfn/gentoo/fsfn-conf	2005-12-22 00:56:13 UTC (rev 42)
++++ trunk/fsfn/gentoo/fsfn-conf	2005-12-23 14:39:27 UTC (rev 43)
+@@ -0,0 +1,10 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++# When a function key combination is pressed, some kernel output is usually
++# generated because there is no binding for that scancode. To prevent filling up
++# your kernel logs with unnecessary output, uncomment the following two lines
++# and adjust them if needed. 112 should be a safe keycode in most cases.
++
++#SCANCODE=e075
++#KEYCODE=112
+
+
+

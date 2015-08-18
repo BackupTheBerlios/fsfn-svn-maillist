@@ -1,0 +1,480 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r46 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-April/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r46%20-%20trunk/fsfn/src&In-Reply-To=%3C200604151208.k3FC8Law013275%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000027.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r46 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r46%20-%20trunk/fsfn/src&In-Reply-To=%3C200604151208.k3FC8Law013275%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r46 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Sat Apr 15 14:08:21 CEST 2006</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000027.html">[Fsfn-svn] r47 - in trunk/fsfn: . src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#26">[ date ]</a>
+              <a href="thread.html#26">[ thread ]</a>
+              <a href="subject.html#26">[ subject ]</a>
+              <a href="author.html#26">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-04-15 14:08:10 +0200 (Sat, 15 Apr 2006)
+New Revision: 46
+
+Modified:
+   trunk/fsfn/src/basicmsg.c
+   trunk/fsfn/src/basicmsg.h
+   trunk/fsfn/src/fsfn.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/readconfig.c
+   trunk/fsfn/src/readconfig.h
+Log:
+Added code to allow OSD to have a &quot;by user&quot; config and handle commands. 
+The additional conf file is ~/.fsfn.conf (only for OSD). 
+After loading, the OSD client will read this file and overwrite duplicates. 
+
+The command handling code should work this way:
+1. daemon decodes keys
+2. Check the /etc/fsfn.conf for a command to execute
+3. If found, daemon executes and that's all
+4. Not found ? send a message to OSD client with key pressed
+5. OSD client check config and exec if possible the action.
+(point 5 is working since OSD overwrite duplicates)
+
+NOTE: 
+* If no cmd for Brigthness/volume in main config, DAEMON will execute the changes and send a cmd to client too. OSD will show up and executes a possible command too (not that logical huh... but OSD cmd are separated from screen output)
+
+In short: OSD executes something ONLY if no root action are set in config..
+
+
+
+Modified: trunk/fsfn/src/basicmsg.c
+===================================================================
+--- trunk/fsfn/src/basicmsg.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/basicmsg.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -32,6 +32,8 @@
+ 
+ /* Message def */
+ #define MSG_TYPE_INFO	1
++#define MSG_TYPE_CMD    2
++
+ struct infodata
+ {
+   int flag;			/* flag - contains modification flag */
+@@ -41,10 +43,16 @@
+ 
+ struct basicmsg
+ {
+-  long mtype;			/* type of the message - currently only one */
++  long mtype;			/* type of the message */
+   struct infodata data;		/* link to struc containing data */
+ };
+ 
++struct cmdmsg
++{
++  long mtype;			/* type of the message */
++  int  cmd_code;		/* command code */
++};
++
+ /* helpers code */
+ 
+ /* Generate a key if needed */
+@@ -155,3 +163,37 @@
+ 
+   return EXIT_SUCCESS;
+ }
++
++int
++sendcmd(int cmd)
++{
++  struct cmdmsg msg;
++  
++  msg.mtype = MSG_TYPE_CMD;
++  msg.cmd_code = cmd;
++
++  if ((msgsnd(msgqueue_id, (const void*) &amp;msg,
++	      sizeof(int), 0)) == -1)
++    {
++      syslog (LOG_CRIT,&quot;Failed to send message: %m&quot;);
++      exit(-1);
++    }
++  return EXIT_SUCCESS;
++}
++
++int 
++getcmd(int* cmd)
++{
++  struct cmdmsg msg;
++  
++  msg.mtype = MSG_TYPE_CMD;
++  if (msgrcv(msgqueue_id, (void*) &amp;msg,
++	     sizeof (struct infodata), MSG_TYPE_CMD, 0) == -1)
++    {
++      syslog (LOG_NOTICE,&quot;Failed to get message: %m&quot;);
++      return -1;
++    }
++  *cmd = msg.cmd_code;
++  
++  return EXIT_SUCCESS;
++}
+
+Modified: trunk/fsfn/src/basicmsg.h
+===================================================================
+--- trunk/fsfn/src/basicmsg.h	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/basicmsg.h	2006-04-15 12:08:10 UTC (rev 46)
+@@ -30,5 +30,7 @@
+ int sendmsg(int flag,int brightness_level,int sound_level);
+ int getmsg(int* flag,int* brightness_level,int* sound_level);
+ 
++int sendcmd(int cmd);
++int getcmd(int* cmd);
+ 
+ #endif
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/fsfn.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -220,6 +220,7 @@
+ 	      		flag = MOD_BRIGHTNESS;
+ 	      		brightness = setBrightness (getBrightness () - 1);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd (FN_F5);
+ #else
+ 	      		setBrightness (getBrightness () - 1);
+ #endif
+@@ -236,6 +237,7 @@
+ 	      		flag = MOD_BRIGHTNESS;
+ 	      		brightness = setBrightness (getBrightness () + 1);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd (FN_F6);
+ #else
+ 	      		setBrightness (getBrightness () + 1);
+ #endif
+@@ -251,6 +253,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = mute (SOUND_STEP);
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F2);
+ #else
+ 	      		mute (SOUND_STEP);			
+ #endif
+@@ -264,6 +267,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = volume_down (SOUND_STEP);	//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F3);
+ #else
+ 	      		volume_down (SOUND_STEP);
+ #endif
+@@ -277,6 +281,7 @@
+ 	      		flag = MOD_SOUND;
+ 	      		sound = volume_up (SOUND_STEP);		//mod by SilSha
+ 	      		sendmsg (flag, brightness, sound);
++			sendcmd(FN_F4);
+ #else
+ 	      		volume_up (SOUND_STEP);
+ #endif
+@@ -285,23 +290,48 @@
+ 	 /* NO built in commands */
+ 	  if ((key &amp; FN_F7) == FN_F7)
+ 	    {
+-		  checkConfig(&quot;F7_CMD&quot;);
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig(&quot;F7_CMD&quot;))
++		sendcmd(FN_F7);
++#else
++	      sendcmd(FN_F7);
++#endif
+ 	    }
+ 	  if ((key &amp; FN_F10) == FN_F10)
+ 	    {
+-		  checkConfig(&quot;F10_CMD&quot;);
++#ifdef HAVE_LIBXOSD
++	      if(!checkConfig(&quot;F10_CMD&quot;))
++		sendcmd(FN_F10);
++#else
++	      sendcmd(FN_F10);
++#endif
+ 	    }
+ 	  if ((key &amp; FN_F12) == FN_F12)
+ 	    {
+-		 checkConfig(&quot;F12_CMD&quot;);
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig(&quot;F12_CMD&quot;))
++		sendcmd(FN_F12);
++#else
++	      checkConfig(&quot;F12_CMD&quot;);
++#endif
+ 	    }
+ 	  if (( key &amp; S1_BTN) == S1_BTN) 
+ 	    {
+-		 checkConfig(&quot;S1_CMD&quot;);
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig(&quot;S1_CMD&quot;))
++		sendcmd(S1_BTN);
++#else
++	      checkConfig(&quot;S1_CMD&quot;);
++#endif
+ 	    }
+ 	  if (( key &amp; S2_BTN) == S2_BTN)
+ 	    {
+-		 checkConfig(&quot;S2_CMD&quot;);
++#ifdef HAVE_LIBXOSD
++	      if (!checkConfig(&quot;S2_CMD&quot;))
++		sendcmd(S2_BTN);
++#else
++	      checkConfig(&quot;S2_CMD&quot;);
++#endif
+ 	    }		  
+ 	}
+     }// while
+@@ -309,26 +339,66 @@
+ 
+ #ifdef HAVE_LIBXOSD
+ void
++loopcmd()
++{
++  int cmd;
++  if (loadqueue ()!=-1) {
++    while (1 == 1) {
++      if (getcmd(&amp;cmd)==-1) {
++	break;
++      }
++      
++      switch(cmd) {
++      case FN_F5: checkConfig(&quot;F5_CMD&quot;); break;
++      case FN_F6: checkConfig(&quot;F6_CMD&quot;); break;
++      case FN_F2: checkConfig(&quot;F2_CMD&quot;); break;
++      case FN_F3: checkConfig(&quot;F3_CMD&quot;); break;
++      case FN_F4: checkConfig(&quot;F4_CMD&quot;); break;
++      case FN_F7: checkConfig(&quot;F7_CMD&quot;); break;
++      case FN_F10:checkConfig(&quot;F10_CMD&quot;); break;
++      case FN_F12:checkConfig(&quot;F12_CMD&quot;); break;
++      case S1_BTN:checkConfig(&quot;S1_CMD&quot;); break;
++      case S2_BTN:checkConfig(&quot;S2_CMD&quot;); break;
++      default:
++	syslog(LOG_INFO,&quot;Unknow cmd send: %d\n&quot;,cmd);
++	break;
++      }
++      
++    }
++  }
++}
++  
++
++void
+ looposd ()
+ {
+   int flag = 0, brightness = 0, sound = 0;
+ 
++  /* Load user def */
++  loadUserConfig();
++
++  /* Fork OSD to loop on cmd msg */
++  if (fork()==0) {
++    loopcmd();
++    exit(0);
++  }
++
+   osd_load ();
+ 
+   if (loadqueue ()!=-1) {
+-	while (1 == 1) {
++    while (1 == 1) {
+ 		  
+-		  if (getmsg (&amp;flag, &amp;brightness, &amp;sound)==-1) {
+-			break; // exit the loop if problems
+-          }
++      if (getmsg (&amp;flag, &amp;brightness, &amp;sound)==-1) {
++	break; // exit the loop if problems
++      }
+ 
+-		  if (flag &amp; MOD_BRIGHTNESS) {
+-	        osd_brightness (brightness);
+-	      }
++      if (flag &amp; MOD_BRIGHTNESS) {
++	osd_brightness (brightness);
++      }
+           
+-		  if (flag &amp; MOD_SOUND) {
+-			osd_volume (sound);
+-		  }
++      if (flag &amp; MOD_SOUND) {
++	osd_volume (sound);
++      }
+     }// while 1
+   }
+ 
+@@ -545,7 +615,7 @@
+ shut down fsfn(1) before suspending and start it after wake up.  This
+ will have the effect of stopping the fsfn(1) client, if it is running.
+ 
+-=item F&lt;/etc/fsfn.conf&gt;
++=item F&lt;/etc/fsfn.conf&gt;, F&lt;~/.fsfn.conf&gt; (only OSD)
+ 
+ The fsfn(1) program reads various parameters from this file when it
+ starts up as a daemon or as a client.  See L&lt;fsfn(5)&gt; for the format
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/fsfn.pod	2006-04-15 12:08:10 UTC (rev 46)
+@@ -28,13 +28,17 @@
+ 
+ =head1 SYNOPSIS
+ 
+-F&lt;/etc/fsfn.conf&gt;
++F&lt;/etc/fsfn.conf&gt; , F&lt;~/.fsfn.conf&gt; (only OSD client)
+ 
+ =head1 DESCRIPTION
+ 
+ fsfn(1) reads configuration data from F&lt;/etc/fsfn.conf&gt;. The file
+ contains keyword-argument pairs, one per line.  Lines starting with
+-`#' and empty lines are interpreted as comments.
++`#' and empty lines are interpreted as comments. The OSD client will 
++also read informations from F&lt;~/.fsfn.conf&gt; and overwrites duplicates.
++OSD client will be notice of actions only if daemon is not configured 
++to handle it. 
++E.g: If you want a &quot;user space&quot; action, set it ONLY in F&lt;~/.fsfn.conf&gt;  
+ 
+ =head1 FORMAT
+ 
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/readconfig.c	2006-04-15 12:08:10 UTC (rev 46)
+@@ -276,29 +276,18 @@
+ 
+ // keep track of config loading state
+ int _config_loaded=0;
+-// load
+-void loadConfig() {
++// load config helper
++void loadConfigSub(char* filename) {
+ 	FILE*	configFile;
+ 	char	buffer[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 	char 	name[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 	char	value[MAX_CFG_LENGTH+MAX_CFG_NAME_LENGTH];
+ 
+-	// load if needed
+-	if (_config_loaded) 
+-		return;
+-	// release previous config
+-	releaseConfig();
++	syslog(LOG_INFO,&quot;Loading config file %s&quot;,filename);
+ 
+-	_config_loaded=1; // set status as loaded
+-
+-	syslog(LOG_INFO,&quot;Loading config file %s&quot;,USER_CONFIG_FILE);
+-	
+-	// set default values
+-	setDefConfig();	
+-
+ 	// read
+-	if ((configFile=fopen(USER_CONFIG_FILE,&quot;r&quot;))==NULL) {
+-		syslog(LOG_NOTICE,&quot;error opening config file&quot;);
++	if ((configFile=fopen(filename,&quot;r&quot;))==NULL) {
++		syslog(LOG_NOTICE,&quot;error opening config file: %m&quot;);
+ 		return;
+ 	}
+ 	while(fgets(buffer,255,configFile)!=NULL) {
+@@ -333,6 +322,33 @@
+ 	fclose(configFile);
+ }
+ 
++void loadConfig() {
++  if (_config_loaded) // load if needed
++    return;
++  releaseConfig(); // release previous config
++  setDefConfig(); // load default
++  loadConfigSub(MAIN_CONFIG_FILE);
++  _config_loaded=1;
++}
++
++void loadUserConfig() {
++  char* path;
++  int maxsize=strlen(getenv(&quot;HOME&quot;))+1+strlen(USER_CONFIG_FILE)+1+1; // get needed string size = $HOME+/+USER_CONFIG_FILE
++
++  /* Create full path name to user config*/
++  path=(char*) malloc(maxsize);
++  strncpy(path,getenv(&quot;HOME&quot;),maxsize);
++  strncat(path,&quot;/&quot;,maxsize);
++  strncat(path,USER_CONFIG_FILE,maxsize);
++  
++  if (!_config_loaded) /* previous config not yet loaded */
++    loadConfig(); /* load it then */
++  loadConfigSub(path);
++
++  /* free used pointer */
++  free(path);
++}
++
+ // release 
+ void releaseConfig() {
+ 	struct config_entry* it;
+
+Modified: trunk/fsfn/src/readconfig.h
+===================================================================
+--- trunk/fsfn/src/readconfig.h	2006-02-21 12:29:51 UTC (rev 45)
++++ trunk/fsfn/src/readconfig.h	2006-04-15 12:08:10 UTC (rev 46)
+@@ -22,6 +22,7 @@
+ //#include &lt;config.h&gt;
+ 
+ void loadConfig();
++void loadUserConfig();
+ void releaseConfig();
+ 
+ char* getConfig(char*);
+@@ -30,7 +31,7 @@
+ 
+ int   setConfig(char* key,char* value); // set a config
+ 
+-#define USER_CONFIG_FILE	&quot;/etc/fsfn.conf&quot;
++#define MAIN_CONFIG_FILE	&quot;/etc/fsfn.conf&quot;
++#define USER_CONFIG_FILE        &quot;.fsfn.conf&quot;
+ 
+-
+ #endif
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000027.html">[Fsfn-svn] r47 - in trunk/fsfn: . src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#26">[ date ]</a>
+              <a href="thread.html#26">[ thread ]</a>
+              <a href="subject.html#26">[ subject ]</a>
+              <a href="author.html#26">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

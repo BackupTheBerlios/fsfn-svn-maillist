@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r29 - in trunk/fsfn: . fedora
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-December/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r29%20-%20in%20trunk/fsfn%3A%20.%20fedora&In-Reply-To=%3C200512130258.jBD2wwbv000382%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000008.html">
+   <LINK REL="Next"  HREF="000010.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r29 - in trunk/fsfn: . fedora</H1>
+    <B>gtwilliams at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r29%20-%20in%20trunk/fsfn%3A%20.%20fedora&In-Reply-To=%3C200512130258.jBD2wwbv000382%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r29 - in trunk/fsfn: . fedora">gtwilliams at berlios.de
+       </A><BR>
+    <I>Tue Dec 13 03:58:58 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000008.html">[Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi
+</A></li>
+        <LI>Next message: <A HREF="000010.html">[Fsfn-svn] r30 - trunk/fsfn/fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: gtwilliams
+Date: 2005-12-13 03:58:52 +0100 (Tue, 13 Dec 2005)
+New Revision: 29
+
+Added:
+   trunk/fsfn/fedora/
+   trunk/fsfn/fedora/fsfn
+Log:
+Added start-up script for Fedora.
+
+
+Added: trunk/fsfn/fedora/fsfn
+===================================================================
+--- trunk/fsfn/fedora/fsfn	2005-12-12 15:56:03 UTC (rev 28)
++++ trunk/fsfn/fedora/fsfn	2005-12-13 02:58:52 UTC (rev 29)
+@@ -0,0 +1,79 @@
++#!/bin/sh
++#
++# chkconfig: 2345 60 60
++# description: Sony Vaio (FS series) laptop hotkey handler
++#
++# Copy this script to /etc/init.d/fsfn then run as root:
++#
++#   chkconfig --add fsfn
++#
++# You probably also want to add fsfn to your desktop start-up process.
++# For Gnome, 
++#
++#   Desktop -&gt; Preferences -&gt; More Preferences -&gt; Sessions
++#
++# then add fsfn to the Startup Programs tab as
++#
++#   /usr/local/bin/fsfn -o
++
++[ -x /usr/local/bin/fsfn ] || exit 0
++
++# Source function library.
++. /etc/rc.d/init.d/functions
++
++RETVAL=0
++
++start() {
++	# Check if it is already running
++	if [ ! -f /var/lock/subsys/fsfn ]; then
++	    echo -n $&quot;Starting fsfn daemon: &quot;
++	    daemon /usr/local/bin/fsfn
++	    RETVAL=$?
++	    [ $RETVAL -eq 0 ] &amp;&amp; touch /var/lock/subsys/fsfn
++	    echo
++	fi
++	return $RETVAL
++}
++
++stop() {
++	echo -n $&quot;Stopping fsfn daemon: &quot;
++	killproc /usr/local/bin/fsfn
++	RETVAL=$?
++	[ $RETVAL -eq 0 ] &amp;&amp; rm -f /var/lock/subsys/fsfn
++	echo
++        return $RETVAL
++}
++
++restart() {
++	stop
++	start
++}	
++
++#
++# See how we were called.
++#
++
++case &quot;$1&quot; in
++start)
++	start
++	;;
++stop)
++	stop
++	;;
++restart)
++	restart
++	;;
++condrestart)
++	if [ -f /var/lock/subsys/acpid ]; then
++	    restart
++	fi
++	;;
++status)
++	status fsfn
++	;;
++*)
++	echo $&quot;Usage: $0 {start|stop|status|restart|condrestart}&quot;
++	exit 1
++esac
++
++exit $RETVAL
+
+
+Property changes on: trunk/fsfn/fedora/fsfn
+___________________________________________________________________
+Name: svn:executable
+   + *
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000008.html">[Fsfn-svn] r28 - in trunk: . ebuilds ebuilds/app-misc ebuilds/app-misc/fsfn ebuilds/app-misc/sonyacpi
+</A></li>
+	<LI>Next message: <A HREF="000010.html">[Fsfn-svn] r30 - trunk/fsfn/fedora
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

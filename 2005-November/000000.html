@@ -1,0 +1,423 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r19 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-November/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r19%20-%20trunk/fsfn/src&In-Reply-To=%3C200511271439.jAREdZEE011707%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000001.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r19 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r19%20-%20trunk/fsfn/src&In-Reply-To=%3C200511271439.jAREdZEE011707%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r19 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Sun Nov 27 15:39:35 CET 2005</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000001.html">[Fsfn-svn] r20 - trunk/fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#0">[ date ]</a>
+              <a href="thread.html#0">[ thread ]</a>
+              <a href="subject.html#0">[ subject ]</a>
+              <a href="author.html#0">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-11-27 15:39:34 +0100 (Sun, 27 Nov 2005)
+New Revision: 19
+
+Added:
+   trunk/fsfn/src/autodev.c
+   trunk/fsfn/src/autodev.h
+Modified:
+   trunk/fsfn/src/Makefile.am
+   trunk/fsfn/src/Makefile.in
+   trunk/fsfn/src/fsfn.c
+Log:
+A basic system to discover right event to use following Garry idea. This should need more tuning and is intended as a 'test'. To use it, set /etc/fsfn.conf DEVICE entry to AUTO (or lauch with AUTO as device).
+Note: default is still /dev/input/event0 - if test of, default can be set a AUTO to use this code.
+
+
+Modified: trunk/fsfn/src/Makefile.am
+===================================================================
+--- trunk/fsfn/src/Makefile.am	2005-11-27 03:20:13 UTC (rev 18)
++++ trunk/fsfn/src/Makefile.am	2005-11-27 14:39:34 UTC (rev 19)
+@@ -1,10 +1,10 @@
+ bin_PROGRAMS = fsfn
+-fsfn_SOURCES = fsfn.c alsasound.c acpihandler.c basicmsg.c osd.c readconfig.c
++fsfn_SOURCES = fsfn.c alsasound.c acpihandler.c basicmsg.c osd.c readconfig.c autodev.c
+ 
+ # set the include path found by configure
+ INCLUDES = $(all_includes)
+ 
+ # the library search path.
+ fsfn_LDFLAGS = $(all_libraries) 
+-noinst_HEADERS = alsasound.h acpihandler.h osd.h generics.h basicmsg.h readconfig.h
++noinst_HEADERS = alsasound.h acpihandler.h osd.h generics.h basicmsg.h readconfig.h autodev.h
+ AM_CFLAGS = -Wall
+
+Modified: trunk/fsfn/src/Makefile.in
+===================================================================
+--- trunk/fsfn/src/Makefile.in	2005-11-27 03:20:13 UTC (rev 18)
++++ trunk/fsfn/src/Makefile.in	2005-11-27 14:39:34 UTC (rev 19)
+@@ -54,7 +54,7 @@
+ PROGRAMS = $(bin_PROGRAMS)
+ am_fsfn_OBJECTS = fsfn.$(OBJEXT) alsasound.$(OBJEXT) \
+ 	acpihandler.$(OBJEXT) basicmsg.$(OBJEXT) osd.$(OBJEXT) \
+-	readconfig.$(OBJEXT)
++	readconfig.$(OBJEXT) autodev.$(OBJEXT)
+ fsfn_OBJECTS = $(am_fsfn_OBJECTS)
+ fsfn_LDADD = $(LDADD)
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
+@@ -146,14 +146,14 @@
+ sharedstatedir = @sharedstatedir@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+-fsfn_SOURCES = fsfn.c alsasound.c acpihandler.c basicmsg.c osd.c readconfig.c
++fsfn_SOURCES = fsfn.c alsasound.c acpihandler.c basicmsg.c osd.c readconfig.c autodev.c
+ 
+ # set the include path found by configure
+ INCLUDES = $(all_includes)
+ 
+ # the library search path.
+ fsfn_LDFLAGS = $(all_libraries) 
+-noinst_HEADERS = alsasound.h acpihandler.h osd.h generics.h basicmsg.h readconfig.h
++noinst_HEADERS = alsasound.h acpihandler.h osd.h generics.h basicmsg.h readconfig.h autodev.h
+ AM_CFLAGS = -Wall
+ all: all-am
+ 
+@@ -223,6 +223,7 @@
+ 
+ @AMDEP_TRUE@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">acpihandler.Po at am__quote</A>@
+ @AMDEP_TRUE@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">alsasound.Po at am__quote</A>@
+<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">+ at AMDEP_TRUE</A>@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">autodev.Po at am__quote</A>@
+ @AMDEP_TRUE@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">basicmsg.Po at am__quote</A>@
+ @AMDEP_TRUE@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">fsfn.Po at am__quote</A>@
+ @AMDEP_TRUE@@am__include@ @<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">am__quote at .</A>/$(DEPDIR)/<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">osd.Po at am__quote</A>@
+
+Added: trunk/fsfn/src/autodev.c
+===================================================================
+--- trunk/fsfn/src/autodev.c	2005-11-27 03:20:13 UTC (rev 18)
++++ trunk/fsfn/src/autodev.c	2005-11-27 14:39:34 UTC (rev 19)
+@@ -0,0 +1,190 @@
++/***************************************************************************
++ *   Copyright (C) 2005 by Poissinger Pierre   *
++ *   <A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">pierre.poissinger at gmail.com</A>   *
++ *                                                                         *
++ *   This program is free software; you can redistribute it and/or modify  *
++ *   it under the terms of the GNU General Public License as published by  *
++ *   the Free Software Foundation; either version 2 of the License, or     *
++ *   (at your option) any later version.                                   *
++ *                                                                         *
++ *   This program is distributed in the hope that it will be useful,       *
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
++ *   GNU General Public License for more details.                          *
++ *                                                                         *
++ *   You should have received a copy of the GNU General Public License     *
++ *   along with this program; if not, write to the                         *
++ *   Free Software Foundation, Inc.,                                       *
++ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
++ ***************************************************************************/
++#ifdef HAVE_CONFIG_H
++#include &lt;config.h&gt;
++#endif
++
++#include &lt;stdlib.h&gt;
++#include &lt;stdio.h&gt;
++#include &lt;string.h&gt;
++#include &quot;autodev.h&quot;
++
++// defines here to not shows unusefull implem. details to callers  
++#define MAX_SIZE	255
++#define MAX_DEVICE_LIST	255
++#define DEVICE_FILE	&quot;/proc/bus/input/devices&quot;
++
++// simple struct to hold parse details
++typedef struct {
++	char name[MAX_SIZE];
++	char entry[MAX_SIZE];
++} entry_device;
++
++// size of parsed result
++int size=0;
++// the entry device
++entry_device devices_list[MAX_DEVICE_LIST];
++
++// for finite autom
++#define STATE_NORMAL		1
++#define STATE_NEW		2
++#define STATE_NAME		3
++#define STATE_NAME_COPY		4
++#define STATE_HANDLER		5
++#define STATE_HANDLER_COPY	6
++
++void parseDevice(FILE*);
++int parseFile(char*);
++
++/* Launch parse on a file */
++int parseFile(char* filename) {
++	FILE* file;
++	if ((file=fopen(filename,&quot;r&quot;))==NULL) {
++		perror(&quot;File open failed&quot;);
++		return -1;
++	}
++	parseDevice(file);
++	fclose(file);
++	return 1;
++}
++
++void parseDevice(FILE* file) {
++	char buffer;
++	int state=STATE_NORMAL;
++	
++	int i=0;	
++	size=0; // (re)set size of devices_lists
++	
++	// use a finite automate to parse... must exist something simpler but that's all 
++	// I can think right now... sorry 
++	while ( (buffer=getc(file))!=EOF) {
++		switch(state) {
++			case STATE_NORMAL: // nothing is defined yet
++				switch(buffer) {
++					case 'N': state=STATE_NAME; // we enter a name
++						  break;
++					case 'H': state=STATE_HANDLER; // we enter a handler
++						  break;
++					case '\n': state=STATE_NEW; // possible new entry ?
++						  break;
++					default:  break;
++				}
++				break;
++			case STATE_NEW: // we are in a potential new device 
++				switch(buffer) {
++					case '\n': size++; // confirmed
++						   state=STATE_NORMAL;
++						   break;
++					case 'N': state=STATE_NAME; // no, we are in a name
++						  break;
++					case 'H': state=STATE_HANDLER; // in a handler
++						  break;
++					default: 
++						   state=STATE_NORMAL; // nothing, back to normal
++						   break;
++				}
++				break;
++			case STATE_NAME: // we are parsing a name
++				switch(buffer) {
++					case '=': state=STATE_NAME_COPY; // the name is here
++						  i=0;
++						  break;
++					case '\n': state=STATE_NORMAL; // finished, back to normal
++						  break;
++					default: break;
++				}
++				break;
++			case STATE_NAME_COPY:	// copy the name
++				switch(buffer) {
++					case '&quot;' : // no need of this char
++						break;
++					case '\n': // finished copy
++						state=STATE_NORMAL;
++						devices_list[size].name[i]='\0';
++						break;
++					default: // copy
++						devices_list[size].name[i]=buffer;
++						i++;
++						break;				
++				}
++				break;
++			case STATE_HANDLER: // we are parsing a handler
++				switch(buffer) {
++					case '=': state=STATE_HANDLER_COPY; // the device starts here
++						  i=0;
++						  break;
++					case '\n': state=STATE_NORMAL; // finished handler ?
++						   break;
++					default:  break;
++				}
++				break;
++			case STATE_HANDLER_COPY: // copy the handler
++				switch(buffer) {
++					case '\n': // finished copy
++						state=STATE_NORMAL;
++						devices_list[size].entry[i]='\0';
++						break;
++					default: // do the copy
++						devices_list[size].entry[i]=buffer;
++						i++;
++						break;
++				}
++				break;
++			default: // should not arrive here...
++				fprintf(stderr,&quot;error: unknow state: %d\n&quot;,state);
++				exit(-1);
++				break;
++		}
++		
++	}
++}
++
++// return event assoc with a name containing item
++int getItemEvent(char* item) {
++	int ret=-1;
++	int e;
++
++	if (!parseFile(DEVICE_FILE)) {
++		fprintf(stderr,&quot;Error reading %s file\n&quot;,DEVICE_FILE);
++	}
++	else {
++		for (e=0;e&lt;size;++e) {
++			if (strstr(devices_list[e].name,item)!=NULL) {
++				char* location;
++				if ( (location=strstr(devices_list[e].entry,&quot;event&quot;))!=NULL) {
++					if (sscanf(location,&quot;event%d &quot;,&amp;ret)!=EOF) {
++						return ret;
++					}
++				}			
++			}
++		}
++	}
++	return ret;
++}
++
++/*int main() {
++	int e;
++	e=getItemEvent(&quot;keyboard&quot;);
++	printf(&quot;Event for keyboard: %d\n&quot;,e);
++	e=getItemEvent(&quot;Mouse&quot;);
++	printf(&quot;Event for mouse: %d\n&quot;,e);
++	e=getItemEvent(&quot;Glide&quot;);
++	printf(&quot;Event for glide: %d\n&quot;,e);
++}*/
+
+Added: trunk/fsfn/src/autodev.h
+===================================================================
+--- trunk/fsfn/src/autodev.h	2005-11-27 03:20:13 UTC (rev 18)
++++ trunk/fsfn/src/autodev.h	2005-11-27 14:39:34 UTC (rev 19)
+@@ -0,0 +1,32 @@
++/***************************************************************************
++ *   Copyright (C) 2005 by Poissinger Pierre   *
++ *   <A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">pierre.poissinger at gmail.com</A>   *
++ *                                                                         *
++ *   This program is free software; you can redistribute it and/or modify  *
++ *   it under the terms of the GNU General Public License as published by  *
++ *   the Free Software Foundation; either version 2 of the License, or     *
++ *   (at your option) any later version.                                   *
++ *                                                                         *
++ *   This program is distributed in the hope that it will be useful,       *
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
++ *   GNU General Public License for more details.                          *
++ *                                                                         *
++ *   You should have received a copy of the GNU General Public License     *
++ *   along with this program; if not, write to the                         *
++ *   Free Software Foundation, Inc.,                                       *
++ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
++ ***************************************************************************/
++#ifndef _AUTODEV_H_
++#define _AUTODEV_H_
++#include &lt;config.h&gt;
++
++// My keyboard name, always the same ???
++#define DEFAULT_KEYBOARD_NAME	&quot;AT Translated Set 2 keyboard&quot;
++
++// The only &quot;usable&quot; function for fsfn
++// return event assoc with name containing item
++int getItemEvent(char* item);
++
++#endif
++
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-11-27 03:20:13 UTC (rev 18)
++++ trunk/fsfn/src/fsfn.c	2005-11-27 14:39:34 UTC (rev 19)
+@@ -42,12 +42,16 @@
+ // config
+ #include &quot;readconfig.h&quot;
+ 
++// autodev
++#include &quot;autodev.h&quot;
++
+ #ifdef HAVE_LIBXOSD
+ #include &quot;basicmsg.h&quot;
+ #include &quot;osd.h&quot;
+ #endif
+ 
+-static char devinput[255];
++#define MAX_DEVINPUT_SIZE	255
++static char devinput[MAX_DEVINPUT_SIZE];
+ 
+ // Check and run possible config
+ // ret 1 if something executed - 0 otherwise
+@@ -103,16 +107,28 @@
+   int flag = 0, brightness = 0, sound = 0;
+   createqueue ();
+ #endif
+-
++  
++  if (strcasecmp(devinput,&quot;AUTO&quot;)==0) { // try to figure out rigth event value for keyboard
++	  snprintf(devinput,MAX_DEVINPUT_SIZE,&quot;/dev/input/event%d&quot;,getItemEvent(DEFAULT_KEYBOARD_NAME));
++	  syslog(LOG_INFO,&quot;autodevice determines %s as keyboard event&quot;,devinput);
++  }
++  
+   if ((fd = open (devinput, O_RDONLY)) &lt; 0)
+     {
+       syslog (LOG_CRIT,&quot;event interface (%s) open failed: %m&quot;,devinput);
++      // shoot auto as LAST chance
++      snprintf(devinput,MAX_DEVINPUT_SIZE,&quot;/dev/input/event%d&quot;,getItemEvent(DEFAULT_KEYBOARD_NAME));
++      syslog(LOG_CRIT,&quot;autodevice determines %s as a last chance keyboard event&quot;,devinput);
++      if ((fd = open (devinput, O_RDONLY)) &lt; 0)
++        {
++	      syslog(LOG_CRIT,&quot;Event interface (%s) open failed: %m&quot;,devinput);
+ #ifdef HAVE_LIBXOSD
+-      killqueue ();
++      	      killqueue ();
+ #endif
+-      releaseConfig();
+-      closelog ();
+-      exit (1);
++      	      releaseConfig();
++      	      closelog ();
++      	      exit (1);
++        }
+     }
+ 
+   /* handle important signal */
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000001.html">[Fsfn-svn] r20 - trunk/fsfn/gentoo
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#0">[ date ]</a>
+              <a href="thread.html#0">[ thread ]</a>
+              <a href="subject.html#0">[ subject ]</a>
+              <a href="author.html#0">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

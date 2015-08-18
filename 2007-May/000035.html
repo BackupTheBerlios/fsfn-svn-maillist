@@ -1,0 +1,521 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r55 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2007-May/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r55%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/src&In-Reply-To=%3C200705171842.l4HIg1ho011609%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   <LINK REL="Next"  HREF="000036.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r55 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r55%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/src&In-Reply-To=%3C200705171842.l4HIg1ho011609%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r55 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/src">muaddib at mail.berlios.de
+       </A><BR>
+    <I>Thu May 17 20:42:01 CEST 2007</I>
+    <P><UL>
+        
+        <LI>Next message: <A HREF="000036.html">[Fsfn-svn] r56 - trunk/fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#35">[ date ]</a>
+              <a href="thread.html#35">[ thread ]</a>
+              <a href="subject.html#35">[ subject ]</a>
+              <a href="author.html#35">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2007-05-17 20:42:00 +0200 (Thu, 17 May 2007)
+New Revision: 55
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-2.0.ebuild
+Modified:
+   trunk/fsfn/AUTHORS
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/src/acpihandler.c
+   trunk/fsfn/src/basicmsg.c
+   trunk/fsfn/src/fsfn.pod
+   trunk/fsfn/src/generics.h
+   trunk/fsfn/src/osd.c
+   trunk/fsfn/src/readconfig.c
+Log:
+Update to add support of the new sony-laptop driver (introduced with kernel 2.6.21) and bumped major version (2.0) since we now support 2 drivers ;-)
+
+Thanks goes to Henrik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">henrik at leotec.se</A>&gt; :-)
+
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-2.0.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-2.0.ebuild	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-2.0.ebuild	2007-05-17 18:42:00 UTC (rev 55)
+@@ -0,0 +1,47 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION=&quot;Sony Vaio (FS series) laptop hotkey handler&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://users.skynet.be/muaddib/fsfn/${P">http://users.skynet.be/muaddib/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;xosd moreconf&quot;
++
++DEPEND=&quot;
++	xosd? ( &gt;=x11-libs/xosd-2.2.0 )
++	dev-lang/perl
++&quot;
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf=&quot;${my_conf} --disable-xosd&quot;
++	use moreconf &amp;&amp; my_conf=&quot;${my_conf} --enable-moreconf&quot;
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo &quot;xosd support built in&quot;
++		einfo &quot;To enable it, please add 'fsfn -o' to your x session&quot;
++		einfo
++	fi
++
++	econf ${my_conf} || die &quot;configuration failed&quot;
++
++	emake || die &quot;make of fsfn failed&quot;
++}
++
++src_install() {
++	make DESTDIR=&quot;${D}&quot; install || die &quot;Installation failed!&quot;
++	doinitd ${S}/gentoo/fsfn || die &quot;Failed to install initd script&quot;
++	newconfd ${S}/gentoo/fsfn-conf fsfn || die &quot;Failed to install config script&quot;	
++	einfo
++	einfo &quot;You can use /etc/init.d/fsfn script to start fsfn&quot;
++	einfo
++}
+
+Modified: trunk/fsfn/AUTHORS
+===================================================================
+--- trunk/fsfn/AUTHORS	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/AUTHORS	2007-05-17 18:42:00 UTC (rev 55)
+@@ -8,3 +8,4 @@
+ ------------------
+ Sascha Franke &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">buzzerbeater at gmx.net</A>&gt;
+ James Le Cuirot &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">chewi at users.berlios.de</A>&gt;
++Henrik &lt;<A HREF="https://lists.berlios.de/mailman/listinfo/fsfn-svn">henrik at leotec.se</A>&gt;
+\ No newline at end of file
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/configure	2007-05-17 18:42:00 UTC (rev 55)
+@@ -2047,7 +2047,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=1.3
++ VERSION=2.0
+ 
+ 
+ cat &gt;&gt;confdefs.h &lt;&lt;_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/configure.in	2007-05-17 18:42:00 UTC (rev 55)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 1.3)
++AM_INIT_AUTOMAKE(fsfn, 2.0)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/src/acpihandler.c
+===================================================================
+--- trunk/fsfn/src/acpihandler.c	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/acpihandler.c	2007-05-17 18:42:00 UTC (rev 55)
+@@ -55,14 +55,14 @@
+ 	return _brightness;
+   }
+ 
+-  if ((handle = fopen (&quot;/proc/acpi/sony/brightness&quot;, &quot;rb&quot;)) == NULL)
++  if ((handle = fopen (getConfig(&quot;BRIGHTNESS_DEVICE&quot;), &quot;rb&quot;)) == NULL)
+     {
+-      syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness: %m&quot;);
++	 syslog (LOG_CRIT,&quot;Error opening %s: %m&quot;,getConfig(&quot;BRIGHTNESS_DEVICE&quot;));
+       exit (-1);
+     }
+   if (fscanf (handle, &quot;%d&quot;, &amp;ret) != 1)
+     {
+-      syslog (LOG_CRIT,&quot;Error reading /proc/acpi/sony/brightness: %m&quot;);
++	 syslog (LOG_CRIT,&quot;Error reading %s: %m&quot;,getConfig(&quot;BRIGHTNESS_DEVICE&quot;));
+       exit (-1);
+     }
+   fclose (handle);
+@@ -89,14 +89,14 @@
+       b = MIN_BRIGHT;
+     }
+ 
+-  if ((handle = fopen (&quot;/proc/acpi/sony/brightness&quot;, &quot;wb&quot;)) == NULL)
++  if ((handle = fopen (getConfig(&quot;BRIGHTNESS_DEVICE&quot;), &quot;wb&quot;)) == NULL)
+     {
+-      syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness: %m&quot;);
++	 syslog (LOG_CRIT,&quot;Error opening %s: %m&quot;,getConfig(&quot;BRIGHTNESS_DEVICE&quot;));
+       exit (-1);
+     }
+   if (fprintf (handle, &quot;%d&quot;, b) != 1)
+     {
+-      syslog (LOG_CRIT,&quot;Error writing /proc/acpi/sony/brightness: %m&quot;);
++	 syslog (LOG_CRIT,&quot;Error %s: %m&quot;,getConfig(&quot;BRIGHTNESS_DEVICE&quot;));
+       exit (-1);
+     }
+   fclose (handle);
+@@ -104,15 +104,17 @@
+   if (getConfigInt(&quot;BRT_SETDEFAULT&quot;)) 
+     {
+ 	  syslog (LOG_INFO,&quot;Writing to default brigthness&quot;);
+-	  if ((handle = fopen (&quot;/proc/acpi/sony/brightness_default&quot;, &quot;wb&quot;)) == NULL)
++	  if ((handle = fopen (getConfig(&quot;BRIGHTNESS_DEFAULT_DEVICE&quot;), &quot;wb&quot;)) == NULL)
+ 		{
+-		  syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/brightness_default: %m&quot;);
+-		  exit (-1);
++		     syslog (LOG_CRIT,&quot;Error opening %s: %m&quot;,
++			     getConfig(&quot;BRIGHTNESS_DEFAULT_DEVICE&quot;));
++		     exit (-1);
+ 		}
+ 	  if (fprintf (handle, &quot;%d&quot;, b) != 1)
+ 		{
+-		  syslog (LOG_CRIT,&quot;Error writing /proc/acpi/sony/brightness_default: %m&quot;);
+-		  exit (-1);
++		     syslog (LOG_CRIT,&quot;Error writing %s: %m&quot;,
++			     getConfig(&quot;BRIGHTNESS_DEFAULT_DEVICE&quot;));
++		     exit (-1);
+ 		}
+ 	  fclose (handle);
+     }
+@@ -135,15 +137,17 @@
+ {
+   FILE *handle;
+   int ret;
+-  if ((handle = fopen (&quot;/proc/acpi/sony/fnkey&quot;, &quot;rb&quot;)) == NULL)
++  if ((handle = fopen (getConfig(&quot;FNKEY_DEVICE&quot;), &quot;rb&quot;)) == NULL)
+     {
+-      syslog (LOG_CRIT,&quot;Error opening /proc/acpi/sony/fnkey: %m&quot;);
+-      exit (-1);
++	 syslog (LOG_CRIT,&quot;Error opening %s: %m&quot;,
++		 getConfig(&quot;FNKEY_DEVICE&quot;));
++	 exit (-1);
+     }
+   if (fscanf (handle, &quot;%d&quot;, &amp;ret) != 1)
+     {
+-      syslog (LOG_CRIT,&quot;Error reading /proc/acpi/sony/fnkey: %m&quot;);
+-      exit (-1);
++	 syslog (LOG_CRIT,&quot;Error reading %s: %m&quot;,
++		 getConfig(&quot;FNKEY_DEVICE&quot;));
++	 exit (-1);
+     }
+   fclose (handle);
+   return ret;
+
+Modified: trunk/fsfn/src/basicmsg.c
+===================================================================
+--- trunk/fsfn/src/basicmsg.c	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/basicmsg.c	2007-05-17 18:42:00 UTC (rev 55)
+@@ -23,10 +23,10 @@
+ #include &lt;sys/ipc.h&gt;
+ #include &lt;sys/msg.h&gt;
+ #include &lt;syslog.h&gt;
+-
++#include &quot;readconfig.h&quot;
+ #include &quot;basicmsg.h&quot;
+ 
+-#define KEY_PATH	&quot;/proc/acpi/sony&quot;
++#define KEY_PATH	getConfig(&quot;FNKEY_DEVICE&quot;)
+ #define KEY_PROJID	'S'
+ 
+ 
+
+Modified: trunk/fsfn/src/fsfn.pod
+===================================================================
+--- trunk/fsfn/src/fsfn.pod	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/fsfn.pod	2007-05-17 18:42:00 UTC (rev 55)
+@@ -217,6 +217,18 @@
+ FN_F10=1024
+ FN_INPUT_VALUE=246
+ 
++=item B&lt;BRIGHTNESS_MAX&gt;,B&lt;BRIGHTNESS_MIN&gt;
++These items allows to set brightness boundaries.
++
++=item B&lt;BRIGHTNESS_DEVICE&gt;
++This item should point to the brightness device to use.
++
++=item B&lt;BRIGHTNESS_DEFAULT_DEVICE&gt;
++This item should point to the brightness default device to use.
++
++=item B&lt;FNKEY_DEVICE&gt;
++this item should point to the fnkey device.
++
+ =back
+ 
+ =head1 EXAMPLE
+
+Modified: trunk/fsfn/src/generics.h
+===================================================================
+--- trunk/fsfn/src/generics.h	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/generics.h	2007-05-17 18:42:00 UTC (rev 55)
+@@ -77,9 +77,10 @@
+ #define  CFG_OSDFONT		9003
+ #define  CFG_ALSA_NAME		9004
+ 
+-// The FS series seems to support 8 brightness levels
+-#define MAX_BRIGHT 8
+-#define MIN_BRIGHT 1
++// The FS series seems to support 7 brightness steps
++#define BRIGHT_STEP 7
++#define MAX_BRIGHT  (getConfigInt(&quot;BRIGHTNESS_MAX&quot;))
++#define MIN_BRIGHT  (getConfigInt(&quot;BRIGHTNESS_MIN&quot;))
+ 
+ // pidfile for deamon
+ #define PID_FILE 	&quot;/var/run/fsfn.pid&quot;
+
+Modified: trunk/fsfn/src/osd.c
+===================================================================
+--- trunk/fsfn/src/osd.c	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/osd.c	2007-05-17 18:42:00 UTC (rev 55)
+@@ -124,7 +124,11 @@
+ osd_brightness (int level)
+ {
+   // the size of the increment
+-  static int inc_size = 100.0 / (MAX_BRIGHT - 1);
++  int inc_size = 100.0 / (MAX_BRIGHT-MIN_BRIGHT);
++  
++  // dirty hack to get a zero level
++  level-=MIN_BRIGHT;
++  
+   int retval = 0;
+   int retval_nc = 0; // non critical errors
+   int pos;
+@@ -188,23 +192,23 @@
+       	syslog (LOG_WARNING, &quot;Failed some non critical setup onscreen display\n&quot;);
+       }
+       
+-      if (level == MAX_BRIGHT)
+-	{
+-	  pos = 100;
+-	}
++      if (level &gt;= MAX_BRIGHT-MIN_BRIGHT)
++      {
++	   pos = 100;
++      }
+       else
+-	{
+-	  pos = level * inc_size - inc_size;
+-	}
++      {
++	   pos = level * inc_size;	       
++      }
+ 
+       retval = xosd_display (disp_obj, 0, XOSD_slider, pos);
+ 
+-	if (OSD_MSG_BRIGHT) // we got a message
++      if (OSD_MSG_BRIGHT) // we got a message
+ 	{
+ 		char message[255];
+ 		if (bright_validated || validate_osd_message(OSD_MSG_BRIGHT)) {
+ 			bright_validated=1;
+-			if (snprintf(message,255,OSD_MSG_BRIGHT,level)&gt;0) {
++			if (snprintf(message,255,OSD_MSG_BRIGHT,MIN_BRIGHT+level)&gt;0) {
+ 				retval = xosd_display (disp_obj, 1, XOSD_string,message);
+ 			}
+ 			else {
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2007-01-22 19:21:28 UTC (rev 54)
++++ trunk/fsfn/src/readconfig.c	2007-05-17 18:42:00 UTC (rev 55)
+@@ -21,6 +21,10 @@
+ #include &lt;config.h&gt;
+ #endif
+ 
++#include &lt;sys/types.h&gt;
++#include &lt;sys/stat.h&gt;
++#include &lt;unistd.h&gt;
++
+ #include &lt;stdlib.h&gt;
+ #include &lt;stdio.h&gt;
+ #include &lt;string.h&gt;
+@@ -197,7 +201,6 @@
+       .value = NULL,
+       .ivalue = NULL, 
+     },
+-
+     // DEVICE
+     {
+       .name = &quot;DEVICE&quot;,
+@@ -227,7 +230,35 @@
+       .value = NULL,
+       .ivalue = NULL,
+     },
++    // Some vaio got different max min...
+     {
++      .name = &quot;BRIGHTNESS_MAX&quot;,
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = &quot;BRIGHTNESS_MIN&quot;,
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    // DEVICES
++    {
++      .name = &quot;BRIGHTNESS_DEVICE&quot;,
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    {
++      .name = &quot;BRIGHTNESS_DEFAULT_DEVICE&quot;,
++      .value = NULL,
++      .ivalue = NULL,
++    },    
++    {
++      .name = &quot;FNKEY_DEVICE&quot;,
++      .value = NULL,
++      .ivalue = NULL,
++    },
++    // The end
++    {
+       .name = NULL
+     }
+   };
+@@ -241,6 +272,8 @@
+ void loadConfig();
+ void releaseConfig();
+ char* getConfig(char* key);
++int fileExist(const char* path);
++int readFileInt(const char* path);
+ 
+ 
+ // get a config key
+@@ -332,8 +365,9 @@
+ // set default value for config
+ void setDefConfig() 
+   {
+-	syslog(LOG_INFO,&quot;Setting default configuration&quot;);
+-	/* Key value default */
++       char tempBuffer[10];
++       syslog(LOG_INFO,&quot;Setting default configuration&quot;);
++       /* Key value default */
+ #ifdef USE_MORECONF
+ 	syslog(LOG_INFO,&quot;MORECONF loading default&quot;);
+ 	proceedConfig(&quot;FN_F2&quot;,&quot;1&quot;);
+@@ -364,6 +398,42 @@
+ 	proceedConfig(&quot;OSD_TIMEOUT&quot;,&quot;3&quot;);
+ 	proceedConfig(&quot;BRT_SETDEFAULT&quot;,&quot;0&quot;); 		// force new default value
+ 	proceedConfig(&quot;BRT_HACK_FJS&quot;,&quot;0&quot;);
++	// Let be smart and check what is loaded
++	if (fileExist(&quot;/sys/devices/platform/sony-laptop/fnkey&quot;)) {
++	     int maxBrightness=7;
++	     syslog(LOG_INFO,&quot;Using sony-laptop subsystem&quot;);
++	     proceedConfig(&quot;BRIGHTNESS_DEVICE&quot;,
++			   &quot;/sys/class/backlight/sony/brightness&quot;);
++	     proceedConfig(&quot;BRIGHTNESS_DEFAULT_DEVICE&quot;,
++			   &quot;/sys/devices/platform/sony-laptop/brightness_default&quot;);
++	     proceedConfig(&quot;FNKEY_DEVICE&quot;,
++			   &quot;/sys/devices/platform/sony-laptop/fnkey&quot;);	
++	     // Let's find max brightness
++	     if ((maxBrightness=readFileInt(
++		       &quot;/sys/class/backlight/sony/max_brightness&quot;))&gt;=0) {
++		  sprintf(tempBuffer,&quot;%d&quot;,maxBrightness);
++		  proceedConfig(&quot;BRIGHTNESS_MAX&quot;,tempBuffer);
++		  sprintf(tempBuffer,&quot;%d&quot;,maxBrightness-BRIGHT_STEP);
++		  proceedConfig(&quot;BRIGHTNESS_MIN&quot;,tempBuffer);
++	     }
++	     else {
++		  proceedConfig(&quot;BRIGHTNESS_MAX&quot;,&quot;8&quot;);
++		  proceedConfig(&quot;BRIGHTNESS_MIN&quot;,&quot;1&quot;);
++	     }
++	}
++	else {
++	     syslog(LOG_INFO,&quot;Using sony-acpi subsystem&quot;);
++	     proceedConfig(&quot;BRIGHTNESS_DEVICE&quot;,
++			   &quot;/proc/acpi/sony/brightness&quot;);
++	     proceedConfig(&quot;BRIGHTNESS_DEFAULT_DEVICE&quot;,
++			   &quot;/proc/acpi/sony/brightness_default&quot;);
++	     proceedConfig(&quot;FNKEY_DEVICE&quot;,
++			   &quot;/proc/acpi/sony/fnkey&quot;);
++	
++	     proceedConfig(&quot;BRIGHTNESS_MAX&quot;,&quot;8&quot;);
++	     proceedConfig(&quot;BRIGHTNESS_MIN&quot;,&quot;1&quot;);
++	}
++	
+ 	syslog(LOG_INFO,&quot;default configuration done&quot;);
+   }
+ 
+@@ -473,3 +543,23 @@
+ 	loadConfig();
+ 	return setConfigValue(key,value);
+ }
++
++int fileExist(const char* path) {
++     struct stat buffer;
++     return (stat(path,&amp;buffer)==0);
++}
++
++int readFileInt(const char* path) {
++     FILE *handle;
++     int ret;
++     if ((handle = fopen(path,&quot;r&quot;))==NULL) {
++	  syslog(LOG_WARNING,&quot;Error reading %s: %m&quot;,path);
++	  return -1;
++     }
++     if (fscanf(handle,&quot;%d&quot;,&amp;ret) != 1) {
++	  syslog(LOG_WARNING,&quot;Error reading %s: %m&quot;,path);
++	  return -1;
++     }
++     fclose(handle);
++     return ret;
++}
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI>Next message: <A HREF="000036.html">[Fsfn-svn] r56 - trunk/fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#35">[ date ]</a>
+              <a href="thread.html#35">[ thread ]</a>
+              <a href="subject.html#35">[ subject ]</a>
+              <a href="author.html#35">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

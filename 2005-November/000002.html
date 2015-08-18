@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r21 - in trunk/fsfn: etc src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-November/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r21%20-%20in%20trunk/fsfn%3A%20etc%20src&In-Reply-To=%3C200511280021.jAS0LvlO027592%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000001.html">
+   <LINK REL="Next"  HREF="000003.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r21 - in trunk/fsfn: etc src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r21%20-%20in%20trunk/fsfn%3A%20etc%20src&In-Reply-To=%3C200511280021.jAS0LvlO027592%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r21 - in trunk/fsfn: etc src">muaddib at berlios.de
+       </A><BR>
+    <I>Mon Nov 28 01:21:57 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000001.html">[Fsfn-svn] r20 - trunk/fsfn/gentoo
+</A></li>
+        <LI>Next message: <A HREF="000003.html">[Fsfn-svn] r22 - trunk/fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2">[ date ]</a>
+              <a href="thread.html#2">[ thread ]</a>
+              <a href="subject.html#2">[ subject ]</a>
+              <a href="author.html#2">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-11-28 01:21:52 +0100 (Mon, 28 Nov 2005)
+New Revision: 21
+
+Modified:
+   trunk/fsfn/etc/fsfn.conf
+   trunk/fsfn/src/alsasound.c
+   trunk/fsfn/src/generics.h
+   trunk/fsfn/src/readconfig.c
+Log:
+Alsa control now got an config entry for the volume to set ('Front' by default - I read on a ubuntu forum someone got something else on his vaio (?misconfiguration?))  
+
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2005-11-27 15:32:32 UTC (rev 20)
++++ trunk/fsfn/etc/fsfn.conf	2005-11-28 00:21:52 UTC (rev 21)
+@@ -1,5 +1,6 @@
+ # device
+ #DEVICE=/dev/input/event1
++#ALSA_NAME=Front
+ # osd looks
+ #OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
+ #OSD_VCOLOR=green
+
+Modified: trunk/fsfn/src/alsasound.c
+===================================================================
+--- trunk/fsfn/src/alsasound.c	2005-11-27 15:32:32 UTC (rev 20)
++++ trunk/fsfn/src/alsasound.c	2005-11-28 00:21:52 UTC (rev 21)
+@@ -35,6 +35,8 @@
+ #include &lt;syslog.h&gt;
+ 
+ #include &quot;alsasound.h&quot;
++#include &quot;generics.h&quot;
++#include &quot;readconfig.h&quot;
+ 
+ static char card[64] = &quot;default&quot;;
+ 
+@@ -94,7 +96,8 @@
+ 		/* load sid */
+ 		snd_mixer_selem_id_alloca(&amp;sid);
+ 		snd_mixer_selem_id_set_index(sid, 0);
+-		snd_mixer_selem_id_set_name(sid,&quot;Front&quot;);
++		//snd_mixer_selem_id_set_name(sid,&quot;Front&quot;);
++		snd_mixer_selem_id_set_name(sid,getConfig(CFG_ALSA_NAME));
+ 		
+ 		/* load elem */
+ 		elem = snd_mixer_find_selem(handle, sid);
+
+Modified: trunk/fsfn/src/generics.h
+===================================================================
+--- trunk/fsfn/src/generics.h	2005-11-27 15:32:32 UTC (rev 20)
++++ trunk/fsfn/src/generics.h	2005-11-28 00:21:52 UTC (rev 21)
+@@ -39,11 +39,11 @@
+ #define MAX_CFG_LENGTH		255
+ #define MAX_CFG_NAME_LENGTH 	20
+ 
+-
+ #define	 CFG_DEVICE		9000
+ #define  CFG_OSDVCOLOR		9001
+ #define  CFG_OSDBCOLOR		9002
+ #define  CFG_OSDFONT		9003
++#define  CFG_ALSA_NAME		9004
+ 
+ // The FS series seems to support 8 brightness levels
+ #define MAX_BRIGHT 8
+
+Modified: trunk/fsfn/src/readconfig.c
+===================================================================
+--- trunk/fsfn/src/readconfig.c	2005-11-27 15:32:32 UTC (rev 20)
++++ trunk/fsfn/src/readconfig.c	2005-11-28 00:21:52 UTC (rev 21)
+@@ -50,7 +50,9 @@
+ 	char OSD_BCOLOR[MAX_CFG_LENGTH];
+ 	char OSD_FONT[MAX_CFG_LENGTH];
+ 	// device
+-	char DEVICE[MAX_CFG_LENGTH];	
++	char DEVICE[MAX_CFG_LENGTH];
++	// alsa name
++	char ALSA_NAME[MAX_CFG_LENGTH];
+ } config_list;
+ 
+ config_list* UserConfig=NULL;
+@@ -100,6 +102,10 @@
+ 		syslog(LOG_INFO,&quot;OSD_FONT=%s&quot;,UserConfig-&gt;OSD_FONT);
+ 	}
+ #endif
++	else if (strcasecmp(name,&quot;ALSA_NAME&quot;)==0) {
++		strncpy(UserConfig-&gt;ALSA_NAME,value,MAX_CFG_LENGTH);
++		syslog(LOG_INFO,&quot;ALSA_NAME=%s&quot;,UserConfig-&gt;ALSA_NAME);
++	}
+ 	else if (strcasecmp(name,&quot;F2_CMD&quot;)==0) {
+ 		strncpy(UserConfig-&gt;F2_CMD,value,MAX_CFG_LENGTH);
+ 		syslog(LOG_INFO,&quot;F2_CMD=%s&quot;,UserConfig-&gt;F2_CMD);
+@@ -153,6 +159,7 @@
+ void setDefConfig() 
+   {
+ 	strncpy(UserConfig-&gt;DEVICE,&quot;/dev/input/event0&quot;,MAX_CFG_LENGTH);
++	strncpy(UserConfig-&gt;ALSA_NAME,&quot;Front&quot;,MAX_CFG_LENGTH);
+ 	strncpy(UserConfig-&gt;F12_CMD,&quot;/bin/hibernate&quot;,MAX_CFG_LENGTH);
+ 	strncpy(UserConfig-&gt;OSD_VCOLOR,&quot;red&quot;,MAX_CFG_LENGTH);
+ 	strncpy(UserConfig-&gt;OSD_BCOLOR,&quot;blue&quot;,MAX_CFG_LENGTH);
+@@ -246,6 +253,7 @@
+ 			case CFG_OSDVCOLOR: return UserConfig-&gt;OSD_VCOLOR;
+ 			case CFG_OSDBCOLOR: return UserConfig-&gt;OSD_BCOLOR;
+ 			case CFG_OSDFONT: return UserConfig-&gt;OSD_FONT;
++			case CFG_ALSA_NAME: return UserConfig-&gt;ALSA_NAME;
+ 			default: break;
+ 		}
+ 	}	
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000001.html">[Fsfn-svn] r20 - trunk/fsfn/gentoo
+</A></li>
+	<LI>Next message: <A HREF="000003.html">[Fsfn-svn] r22 - trunk/fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#2">[ date ]</a>
+              <a href="thread.html#2">[ thread ]</a>
+              <a href="subject.html#2">[ subject ]</a>
+              <a href="author.html#2">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

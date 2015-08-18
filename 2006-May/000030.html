@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r50 - trunk/sony_acpi
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-May/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r50%20-%20trunk/sony_acpi&In-Reply-To=%3C200605231805.k4NI5Mgo026879%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000029.html">
+   <LINK REL="Next"  HREF="000031.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r50 - trunk/sony_acpi</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r50%20-%20trunk/sony_acpi&In-Reply-To=%3C200605231805.k4NI5Mgo026879%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r50 - trunk/sony_acpi">muaddib at berlios.de
+       </A><BR>
+    <I>Tue May 23 20:05:22 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000029.html">[Fsfn-svn] r49 - in trunk/fsfn: . src
+</A></li>
+        <LI>Next message: <A HREF="000031.html">[Fsfn-svn] r51 - in trunk: . fsfn fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#30">[ date ]</a>
+              <a href="thread.html#30">[ thread ]</a>
+              <a href="subject.html#30">[ subject ]</a>
+              <a href="author.html#30">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-05-23 20:05:17 +0200 (Tue, 23 May 2006)
+New Revision: 50
+
+Modified:
+   trunk/sony_acpi/sony_acpi.c
+Log:
+Applied patch from Bjorn Helgaas
+
+
+Modified: trunk/sony_acpi/sony_acpi.c
+===================================================================
+--- trunk/sony_acpi/sony_acpi.c	2006-05-13 09:55:43 UTC (rev 49)
++++ trunk/sony_acpi/sony_acpi.c	2006-05-23 18:05:17 UTC (rev 50)
+@@ -263,7 +263,7 @@
+ 	return AE_OK;
+ }
+ 
+-static int __init sony_acpi_add(struct acpi_device *device)
++static int sony_acpi_add(struct acpi_device *device)
+ {
+ 	acpi_status status;
+ 	int result;
+@@ -345,7 +345,7 @@
+ }
+ 
+ 
+-static int __exit sony_acpi_remove(struct acpi_device *device, int type)
++static int sony_acpi_remove(struct acpi_device *device, int type)
+ {
+ 	acpi_status status;
+ 	struct sony_acpi_value *item;
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000029.html">[Fsfn-svn] r49 - in trunk/fsfn: . src
+</A></li>
+	<LI>Next message: <A HREF="000031.html">[Fsfn-svn] r51 - in trunk: . fsfn fsfn/src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#30">[ date ]</a>
+              <a href="thread.html#30">[ thread ]</a>
+              <a href="subject.html#30">[ subject ]</a>
+              <a href="author.html#30">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

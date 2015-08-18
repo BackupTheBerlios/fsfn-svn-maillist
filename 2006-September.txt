@@ -1,0 +1,43 @@
+From muaddib at mail.berlios.de  Sat Sep 23 11:37:47 2006
+From: muaddib at mail.berlios.de (muaddib at BerliOS)
+Date: Sat, 23 Sep 2006 11:37:47 +0200
+Subject: [Fsfn-svn] r53 - trunk/fsfn/src
+Message-ID: <200609230937.k8N9blmX028321@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-09-23 11:37:47 +0200 (Sat, 23 Sep 2006)
+New Revision: 53
+
+Modified:
+   trunk/fsfn/src/fsfn.c
+Log:
+Changed execv to system
+
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2006-07-08 15:52:37 UTC (rev 52)
++++ trunk/fsfn/src/fsfn.c	2006-09-23 09:37:47 UTC (rev 53)
+@@ -74,14 +74,13 @@
+ 	buffer=getConfig(key);
+ 	
+ 	if ((buffer)&&(buffer[0]!='\0')) {
+-		syslog(LOG_NOTICE,"Executing [%s]",buffer);
+ 	 	if (fork () == 0)
+ 		{
+-		    if (execv (buffer, NULL) == -1)
+-		    {
+-		      syslog (LOG_NOTICE,"Cannot run [%s]: %m",buffer);
+-		      exit(0);
+-		    }
++		     syslog(LOG_NOTICE,"Executing [%s] - start",buffer);
++		     if (system (buffer) == -1)
++			 syslog (LOG_NOTICE,"Cannot run [%s]: %m",buffer);
++		     syslog(LOG_NOTICE,"Executing [%s] - end",buffer);
++		     exit(0);
+ 		}
+ 		return 1;
+ 	}
+
+
+

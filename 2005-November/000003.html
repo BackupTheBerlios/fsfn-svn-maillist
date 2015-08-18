@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r22 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2005-November/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r22%20-%20trunk/fsfn/src&In-Reply-To=%3C200511280222.jAS2MvKk002327%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000002.html">
+   <LINK REL="Next"  HREF="000004.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r22 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r22%20-%20trunk/fsfn/src&In-Reply-To=%3C200511280222.jAS2MvKk002327%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r22 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Mon Nov 28 03:22:57 CET 2005</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000002.html">[Fsfn-svn] r21 - in trunk/fsfn: etc src
+</A></li>
+        <LI>Next message: <A HREF="000004.html">[Fsfn-svn] r23 - in trunk/fsfn: . man src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3">[ date ]</a>
+              <a href="thread.html#3">[ thread ]</a>
+              <a href="subject.html#3">[ subject ]</a>
+              <a href="author.html#3">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2005-11-28 03:22:48 +0100 (Mon, 28 Nov 2005)
+New Revision: 22
+
+Modified:
+   trunk/fsfn/src/fsfn.c
+Log:
+Added a &quot;resume on failure&quot; in fsfn device reading code
+After resume, the error returned by the read is &quot;device not found&quot; --&gt; added a check (before the error was seg fault...baaad baaad) and a shoot to the &quot;auto determine device&quot; if this error is spotted...
+I added a sleep(10) aswell, too fast is not a good idea: At this place, it seems to solve a &quot;no multipe resume bug&quot;... (tried lots of different code - most of them give the right event but they fail to open it after the 2nd suspend...)
+
+DISCLAIMER: For a &quot;i don't really care right now&quot; reason, I cannot do a full suspend but I experience the swapping events effect... so this need a little QA ;) [and a big fat greek code check...]
+
+
+Modified: trunk/fsfn/src/fsfn.c
+===================================================================
+--- trunk/fsfn/src/fsfn.c	2005-11-28 00:21:52 UTC (rev 21)
++++ trunk/fsfn/src/fsfn.c	2005-11-28 02:22:48 UTC (rev 22)
+@@ -25,6 +25,7 @@
+ 
+ #include &lt;stdio.h&gt;
+ #include &lt;stdlib.h&gt;
++#include &lt;errno.h&gt;
+ #include &lt;unistd.h&gt;
+ #include &lt;string.h&gt;
+ #include &lt;fcntl.h&gt;
+@@ -53,6 +54,16 @@
+ #define MAX_DEVINPUT_SIZE	255
+ static char devinput[MAX_DEVINPUT_SIZE];
+ 
++// one way out
++void cleanExit(int ret) {
++#ifdef HAVE_LIBXOSD
++	killqueue ();
++#endif
++	releaseConfig();
++	closelog();
++	exit(ret);	
++}
++
+ // Check and run possible config
+ // ret 1 if something executed - 0 otherwise
+ int checkConfig(int CONFIGCODE) 
+@@ -81,13 +92,7 @@
+ /* signal handler */
+ void signal_handler(sig)
+ {
+-	// only needed to clean
+-#ifdef HAVE_LIBXOSD
+-	killqueue ();
+-#endif
+-	releaseConfig();
+-	closelog();
+-	exit(0);
++	cleanExit(EXIT_FAILURE);
+ }
+ 
+ void
+@@ -122,25 +127,20 @@
+       if ((fd = open (devinput, O_RDONLY)) &lt; 0)
+         {
+ 	      syslog(LOG_CRIT,&quot;Event interface (%s) open failed: %m&quot;,devinput);
+-#ifdef HAVE_LIBXOSD
+-      	      killqueue ();
+-#endif
+-      	      releaseConfig();
+-      	      closelog ();
+-      	      exit (1);
+-        }
++              cleanExit(EXIT_FAILURE);
++	}
+     }
+ 
+   /* handle important signal */
+   if (signal(SIGTERM,signal_handler) &lt; 0)
+     {
+       perror(&quot;signal&quot;);
+-      exit(1);
++      exit(EXIT_FAILURE);
+     }
+   if (signal(SIGHUP,signal_handler) &lt; 0)
+     {
+       perror(&quot;signal&quot;);
+-      exit(1);
++      exit(EXIT_FAILURE);
+     }
+ 
+   syslog(LOG_INFO,&quot;fsfn loaded&quot;);
+@@ -153,19 +153,46 @@
+       /*
+        * read the event interface 
+        */
+-      read_bytes = read (fd, ev, sizeof (struct input_event) * 64);
++      if ( (read_bytes = read (fd, ev, sizeof (struct input_event) * 64))==-1) {
++	      //fprintf(stderr,&quot;Error: %d\n&quot;,errno);
++	      if (errno==ENODEV) { // event is now invalid ? must be back from sleep...
++		      syslog(LOG_NOTICE,&quot;Start sleeping...&quot;);
++		      sleep(10);		      
++		      syslog(LOG_NOTICE,&quot;End sleeping...&quot;);
+ 
++		      close(fd); // is this needed ??
++		      
++		      syslog(LOG_NOTICE,&quot;Input device changed, back from suspend ?: %m&quot;);
++		      
++		      // get new event
++		      snprintf(devinput,MAX_DEVINPUT_SIZE,&quot;/dev/input/event%d&quot;,getItemEvent(DEFAULT_KEYBOARD_NAME));
++      		      syslog(LOG_NOTICE,&quot;autodevice determines %s as new event&quot;,devinput);
++		      
++		      // reopen - seems to be problems after a hibernate :(
++      		      if ((fd = open (devinput, O_RDONLY)) &lt; 0)
++        	        {
++				syslog(LOG_CRIT,&quot;New event interface (%s) open failed: %m&quot;,devinput); 
++				cleanExit(EXIT_FAILURE);
++			}
++		      // read it
++		      if ((read_bytes = read (fd, ev, sizeof (struct input_event) * 64))==-1) 
++		        {
++				syslog(LOG_CRIT,&quot;Reading new device (%s) failed: %m&quot;,devinput);
++				cleanExit(EXIT_FAILURE);
++		        }
++	      }
++	      else {
++		      syslog(LOG_CRIT,&quot;Input device reading failed: %m&quot;);
++		      cleanExit(EXIT_FAILURE);
++	      }
++	}
++      	
+       if (read_bytes &lt; (int) sizeof (struct input_event))
+ 	{
+ 	  syslog (LOG_CRIT,&quot;short read: %m&quot;);
+-#ifdef HAVE_LIBXOSD
+-	  killqueue ();
+-#endif
+-      	  releaseConfig();
+-	  closelog ();
+-	  exit (1);
++	  cleanExit(EXIT_FAILURE);
+ 	}
+-
++      
+       /*
+        * Loop for all readed events until we have something
+        * interesting.. 
+@@ -178,7 +205,7 @@
+ 	    &amp;&amp; (ev[i].code == FN_INPUT_CODE)
+ 	    &amp;&amp; (ev[i].value == FN_INPUT_VALUE);
+ 	}
+-
++      
+       /*
+        * If we got a FN event, plz do something... 
+        */
+@@ -332,11 +359,11 @@
+       
+       if ((pidfile=open(PID_FILE,O_RDWR|O_CREAT,0640))&lt;0) {
+       	syslog(LOG_CRIT,&quot;Failed to create pid file: %m&quot;);
+-	exit(-1);
++	exit(EXIT_FAILURE);
+       }
+       if (lockf(pidfile,F_TLOCK,0)&lt;0) {
+ 	      syslog(LOG_CRIT,&quot;Failed to lock pid file: %m&quot;);
+-	      exit(-1); /* can not lock */
++	      exit(EXIT_FAILURE); /* can not lock */
+       }
+       sprintf(str,&quot;%d\n&quot;,getpid());
+       write(pidfile,str,strlen(str)); /* record pid to lockfile */
+@@ -345,7 +372,7 @@
+       break;
+     case -1:
+       perror (&quot;Failed to deamonize&quot;);
+-      exit (-1);
++      exit (EXIT_FAILURE);
+     default:
+       break;
+     }
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000002.html">[Fsfn-svn] r21 - in trunk/fsfn: etc src
+</A></li>
+	<LI>Next message: <A HREF="000004.html">[Fsfn-svn] r23 - in trunk/fsfn: . man src
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#3">[ date ]</a>
+              <a href="thread.html#3">[ thread ]</a>
+              <a href="subject.html#3">[ subject ]</a>
+              <a href="author.html#3">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

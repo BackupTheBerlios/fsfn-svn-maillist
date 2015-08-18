@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r52 - trunk/fsfn/src
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-July/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r52%20-%20trunk/fsfn/src&In-Reply-To=%3C200607081552.k68FqbOL014388%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r52 - trunk/fsfn/src</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r52%20-%20trunk/fsfn/src&In-Reply-To=%3C200607081552.k68FqbOL014388%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r52 - trunk/fsfn/src">muaddib at berlios.de
+       </A><BR>
+    <I>Sat Jul  8 17:52:37 CEST 2006</I>
+    <P><UL>
+        
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#32">[ date ]</a>
+              <a href="thread.html#32">[ thread ]</a>
+              <a href="subject.html#32">[ subject ]</a>
+              <a href="author.html#32">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-07-08 17:52:37 +0200 (Sat, 08 Jul 2006)
+New Revision: 52
+
+Modified:
+   trunk/fsfn/src/osd.c
+Log:
+Added more OSD diagnostic error message to syslog
+
+
+Modified: trunk/fsfn/src/osd.c
+===================================================================
+--- trunk/fsfn/src/osd.c	2006-05-23 18:15:12 UTC (rev 51)
++++ trunk/fsfn/src/osd.c	2006-07-08 15:52:37 UTC (rev 52)
+@@ -137,20 +137,46 @@
+       return -1;
+     }
+ 
+-  retval |= xosd_set_bar_length (disp_obj, 100);
+-  retval |= xosd_set_pos (disp_obj, XOSD_bottom);
+-  retval |= xosd_set_align (disp_obj, XOSD_center);
+-  retval |= xosd_set_shadow_offset (disp_obj, 1);
+-  retval |= xosd_set_outline_offset (disp_obj, 1);
+-  retval |= xosd_set_vertical_offset (disp_obj, 30);
+-  retval |= xosd_set_colour (disp_obj, OSD_BCOLOR);
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+-  
+-  retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
++  if (xosd_set_bar_length (disp_obj, 100)) {
++	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_bar_length&quot;, xosd_error);
++	retval=1;
++  }
++  if (xosd_set_pos (disp_obj, XOSD_bottom)) {
++	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_pos&quot;, xosd_error);
++	retval=1;       
++  }
++  if (xosd_set_align (disp_obj, XOSD_center)) {
++       	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_align&quot;, xosd_error);
++	retval=1;
++  }
++  if (xosd_set_vertical_offset (disp_obj, 30)) {
++       	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_vertical_offset&quot;, xosd_error);
++	retval=1;
++  }
++  if (xosd_set_shadow_offset (disp_obj, 1)) {
++       	syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_shadow_offset&quot;, xosd_error);
++	retval_nc=1;
++  }
++  if (xosd_set_outline_offset (disp_obj, 1)) {
++       	syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_outline_offset&quot;, xosd_error);
++	retval_nc=1;
++  }
++  if (xosd_set_colour (disp_obj, OSD_BCOLOR)) {
++      syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_color&quot;, xosd_error);
++      retval_nc=1; 
++  }
++  if (xosd_set_timeout (disp_obj, OSD_TIMEOUT)) {
++       syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_timeout&quot;, xosd_error);
++       retval_nc=1;
++  }
++  if (xosd_set_font (disp_obj, OSD_FONT)) {
++       syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_font&quot;, xosd_error);
++       retval_nc=1;
++  }
+ 
+   if (retval)
+     {
+-      syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s\n&quot;, xosd_error);
++      syslog (LOG_CRIT, &quot;Failed some critical setup onscreen display\n&quot;);
+       // if we arrive here, object must be dead...
+       osd_unload ();
+       return -1;
+@@ -159,7 +185,7 @@
+     {
+       // no need to stop for these errors
+       if (retval_nc) {
+-      	syslog (LOG_CRIT, &quot;Failed non critical setup onscreen display: %s\n&quot;, xosd_error);
++      	syslog (LOG_WARNING, &quot;Failed some non critical setup onscreen display\n&quot;);
+       }
+       
+       if (level == MAX_BRIGHT)
+@@ -233,25 +259,55 @@
+       return -1;
+     }
+ 
+-  retval |= xosd_set_bar_length (disp_obj, 100);
+-  retval |= xosd_set_pos (disp_obj, XOSD_bottom);
+-  retval |= xosd_set_align (disp_obj, XOSD_center);
+-  retval |= xosd_set_shadow_offset (disp_obj, 1);
+-  retval |= xosd_set_outline_offset (disp_obj, 1);
+-  retval |= xosd_set_vertical_offset (disp_obj, 30);	//mod by SilSha
+-  if (level == 0) {  
+-  	retval |= xosd_set_colour (disp_obj, OSD_VCOLORZ);
++  if (xosd_set_bar_length (disp_obj, 100)) {
++	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_bar_length&quot;, xosd_error);
++	retval=1;
+   }
++  if (xosd_set_pos (disp_obj, XOSD_bottom)) {
++	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_pos&quot;, xosd_error);
++	retval=1;       
++  }
++  if (xosd_set_align (disp_obj, XOSD_center)) {
++       	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_align&quot;, xosd_error);
++	retval=1;
++  }
++  if (xosd_set_vertical_offset (disp_obj, 30)) {
++       	syslog (LOG_CRIT, &quot;Failed critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_vertical_offset&quot;, xosd_error);
++	retval=1;
++  }
++  if (xosd_set_shadow_offset (disp_obj, 1)) {
++       	syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_shadow_offset&quot;, xosd_error);
++	retval_nc=1;
++  }
++  if (xosd_set_outline_offset (disp_obj, 1)) {
++       	syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_outline_offset&quot;, xosd_error);
++	retval_nc=1;
++  }
++  if (xosd_set_timeout (disp_obj, OSD_TIMEOUT)) {
++       syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_timeout&quot;, xosd_error);
++       retval_nc=1;
++  }
++  if (xosd_set_font (disp_obj, OSD_FONT)) {
++       syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_font&quot;, xosd_error);
++       retval_nc=1;
++  }
++
++  if (level==0) {
++       if (xosd_set_colour (disp_obj, OSD_VCOLORZ)) {
++	    syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_color&quot;, xosd_error);
++	    retval_nc=1; 
++       }
++  }
+   else {
+-  retval |= xosd_set_colour (disp_obj, OSD_VCOLOR);
++       if (xosd_set_colour (disp_obj, OSD_VCOLOR)) {
++	    syslog (LOG_WARNING, &quot;Failed non critical setup onscreen display: %s : %s\n&quot;,&quot;xosd_set_color&quot;, xosd_error);
++	    retval_nc=1; 
++       }
+   }
+-  retval |= xosd_set_timeout (disp_obj, OSD_TIMEOUT);
+-  
+-  retval_nc |= xosd_set_font (disp_obj, OSD_FONT);
+-
++       
+   if (retval)
+     {
+-      syslog (LOG_NOTICE, &quot;Failed critical setup onscreen display: %s&quot;, xosd_error);
++      syslog (LOG_CRIT, &quot;Failed some critical setup onscreen display\n&quot;);
+       // kill possible osd and return
+       osd_unload ();
+       return -1;
+@@ -260,7 +316,7 @@
+     {
+       // no need to stop for these errors
+       if (retval_nc) {
+-      	syslog (LOG_CRIT, &quot;Failed non-critical setup onscreen display: %s\n&quot;, xosd_error);
++      	syslog (LOG_WARNING, &quot;Failed some non-critical setup onscreen display\n&quot;);
+       }
+ 
+       retval = xosd_display (disp_obj, 0, XOSD_slider, level);
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#32">[ date ]</a>
+              <a href="thread.html#32">[ thread ]</a>
+              <a href="subject.html#32">[ subject ]</a>
+              <a href="author.html#32">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

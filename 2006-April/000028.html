@@ -1,0 +1,246 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Fsfn-svn] r48 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/gentoo
+   </TITLE>
+   <LINK REL="Index" HREF="http://lists.berlios.de/pipermail/fsfn-svn/2006-April/index.html" >
+   <LINK REL="made" HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r48%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/etc%20fsfn/gentoo&In-Reply-To=%3C200604161625.k3GGPKPc030388%40sheep.berlios.de%3E">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <style type="text/css">
+       pre {
+           white-space: pre-wrap;       /* css-2.1, curent FF, Opera, Safari */
+           }
+   </style>
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000027.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Fsfn-svn] r48 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/gentoo</H1>
+    <B>muaddib at BerliOS</B> 
+    <A HREF="mailto:fsfn-svn%40lists.berlios.de?Subject=Re%3A%20%5BFsfn-svn%5D%20r48%20-%20in%20trunk%3A%20ebuilds/app-laptop/fsfn%20fsfn%20fsfn/etc%20fsfn/gentoo&In-Reply-To=%3C200604161625.k3GGPKPc030388%40sheep.berlios.de%3E"
+       TITLE="[Fsfn-svn] r48 - in trunk: ebuilds/app-laptop/fsfn fsfn fsfn/etc fsfn/gentoo">muaddib at berlios.de
+       </A><BR>
+    <I>Sun Apr 16 18:25:20 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000027.html">[Fsfn-svn] r47 - in trunk/fsfn: . src
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#28">[ date ]</a>
+              <a href="thread.html#28">[ thread ]</a>
+              <a href="subject.html#28">[ subject ]</a>
+              <a href="author.html#28">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Author: muaddib
+Date: 2006-04-16 18:25:18 +0200 (Sun, 16 Apr 2006)
+New Revision: 48
+
+Added:
+   trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild
+Modified:
+   trunk/fsfn/Makefile.am
+   trunk/fsfn/Makefile.in
+   trunk/fsfn/configure
+   trunk/fsfn/configure.in
+   trunk/fsfn/etc/fsfn.conf
+   trunk/fsfn/gentoo/fsfn-conf
+Log:
+Bumped version to 1.2 , corrected Makefile.am to include configuration for init.d scripts and created a new ebuild...
+
+As far as I am concerned, this should be released ;)
+
+
+Added: trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild
+===================================================================
+--- trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/ebuilds/app-laptop/fsfn/fsfn-1.2.ebuild	2006-04-16 16:25:18 UTC (rev 48)
+@@ -0,0 +1,48 @@
++# Copyright 1999-2005 Gentoo Foundation
++# Distributed under the terms of the GNU General Public License v2
++
++DESCRIPTION=&quot;Sony Vaio (FS series) laptop hotkey handler&quot;
++HOMEPAGE=&quot;<A HREF="http://developer.berlios.de/projects/fsfn/">http://developer.berlios.de/projects/fsfn/</A>&quot;
++SRC_URI=&quot;<A HREF="http://users.skynet.be/muaddib/fsfn/${P">http://users.skynet.be/muaddib/fsfn/${P</A>}.tar.gz&quot;
++
++LICENSE=&quot;GPL-2&quot;
++SLOT=&quot;0&quot;
++KEYWORDS=&quot;~x86&quot;
++IUSE=&quot;xosd moreconf&quot;
++
++DEPEND=&quot;
++	xosd? ( &gt;=x11-libs/xosd-2.2.0 )
++	&gt;=app-laptop/sonyacpi-0.1
++	dev-lang/perl
++&quot;
++
++src_unpack() {
++	unpack ${A}
++	cd ${S}	
++}
++
++src_compile () {
++	use xosd || my_conf=&quot;${my_conf} --disable-xosd&quot;
++	use moreconf &amp;&amp; my_conf=&quot;${my_conf} --enable-moreconf&quot;
++
++	# just give a few info
++	if use xosd; then
++		einfo
++		einfo &quot;xosd support built in&quot;
++		einfo &quot;To enable it, please add 'fsfn -o' to your x session&quot;
++		einfo
++	fi
++
++	econf ${my_conf} || die &quot;configuration failed&quot;
++
++	emake || die &quot;make of fsfn failed&quot;
++}
++
++src_install() {
++	make DESTDIR=&quot;${D}&quot; install || die &quot;Installation failed!&quot;
++	doinitd ${S}/gentoo/fsfn || die &quot;Failed to install initd script&quot;
++	newconfd ${S}/gentoo/fsfn-conf fsfn || die &quot;Failed to install config script&quot;	
++	einfo
++	einfo &quot;You can use /etc/init.d/fsfn script to start fsfn&quot;
++	einfo
++}
+
+Modified: trunk/fsfn/Makefile.am
+===================================================================
+--- trunk/fsfn/Makefile.am	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/Makefile.am	2006-04-16 16:25:18 UTC (rev 48)
+@@ -2,6 +2,10 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ SUBDIRS      = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
++EXTRA_DIST =  \
++	gentoo/fsfn gentoo/fsfn-conf \
++	debian/fsfn debian/fsfn-conf \
++	fedora/fsfn fedora/fsfn-conf \
++	etc/fsfn.conf
+ 
+ ## Makefile.am ends here
+
+Modified: trunk/fsfn/Makefile.in
+===================================================================
+--- trunk/fsfn/Makefile.in	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/Makefile.in	2006-04-16 16:25:18 UTC (rev 48)
+@@ -149,7 +149,12 @@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+ SUBDIRS = src
+-EXTRA_DIST = gentoo/fsfn debian/fsfn etc/fsfn.conf fedora/fsfn
++EXTRA_DIST = \
++	gentoo/fsfn gentoo/fsfn-conf \
++	debian/fsfn debian/fsfn-conf \
++	fedora/fsfn fedora/fsfn-conf \
++	etc/fsfn.conf
++
+ all: config.h
+ 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+ 
+
+Modified: trunk/fsfn/configure
+===================================================================
+--- trunk/fsfn/configure	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/configure	2006-04-16 16:25:18 UTC (rev 48)
+@@ -1616,7 +1616,7 @@
+ 
+ # Define the identity of the package.
+  PACKAGE=fsfn
+- VERSION=1.1
++ VERSION=1.2
+ 
+ 
+ cat &gt;&gt;confdefs.h &lt;&lt;_ACEOF
+
+Modified: trunk/fsfn/configure.in
+===================================================================
+--- trunk/fsfn/configure.in	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/configure.in	2006-04-16 16:25:18 UTC (rev 48)
+@@ -2,7 +2,7 @@
+ AC_CONFIG_SRCDIR([configure.in])
+ 
+ AC_CONFIG_HEADERS([config.h])
+-AM_INIT_AUTOMAKE(fsfn, 1.1)
++AM_INIT_AUTOMAKE(fsfn, 1.2)
+ 
+ dnl osd 
+ # additional options
+
+Modified: trunk/fsfn/etc/fsfn.conf
+===================================================================
+--- trunk/fsfn/etc/fsfn.conf	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/etc/fsfn.conf	2006-04-16 16:25:18 UTC (rev 48)
+@@ -1,15 +1,13 @@
+-# device
+-#DEVICE=/dev/input/event1
++# A sample config file for FSFN, check man 5 fsfn for possible values
++#DEVICE=AUTO
+ #ALSA_NAME=Front
+-SOUND_STEP=8
+-#osd looks
++#SOUND_STEP=8
+ #OSD_FONT=-*-lucida-*-*-*-*-24-*-*-*-*-*-iso8859-1
+-OSD_VCOLOR=green
+-OSD_VCOLORZ=red
+-OSD_BCOLOR=blue
+-OSD_TIMEOUT=1
+-OSD_LEVEL=1
+-#scripts
++#OSD_VCOLOR=green
++#OSD_VCOLORZ=red
++#OSD_BCOLOR=blue
++#OSD_TIMEOUT=1
++#OSD_LEVEL=1
+ #F2_CMD=
+ #F3_CMD=
+ #F4_CMD=
+
+Modified: trunk/fsfn/gentoo/fsfn-conf
+===================================================================
+--- trunk/fsfn/gentoo/fsfn-conf	2006-04-15 16:02:53 UTC (rev 47)
++++ trunk/fsfn/gentoo/fsfn-conf	2006-04-16 16:25:18 UTC (rev 48)
+@@ -3,8 +3,11 @@
+ 
+ # When a function key combination is pressed, some kernel output is usually
+ # generated because there is no binding for that scancode. To prevent filling up
+-# your kernel logs with unnecessary output, uncomment the following two lines
+-# and adjust them if needed. 112 should be a safe keycode in most cases.
++# your kernel logs with unnecessary output, uncomment the following lines
++# and adjust them if needed. 245 should be a safe keycode in most cases.
+ 
+ #SCANCODE=e075
+-#KEYCODE=112
++#KEYCODE=245
++
++#Other possible SCANCODE - check your kernel output :-)
++#SCANCODE=0xf5
+\ No newline at end of file
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000027.html">[Fsfn-svn] r47 - in trunk/fsfn: . src
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#28">[ date ]</a>
+              <a href="thread.html#28">[ thread ]</a>
+              <a href="subject.html#28">[ subject ]</a>
+              <a href="author.html#28">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="https://lists.berlios.de/mailman/listinfo/fsfn-svn">More information about the Fsfn-svn
+mailing list</a><br>
+</body></html>

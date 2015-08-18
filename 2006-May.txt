@@ -1,0 +1,151 @@
+From muaddib at berlios.de  Sat May 13 11:55:44 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Sat, 13 May 2006 11:55:44 +0200
+Subject: [Fsfn-svn] r49 - in trunk/fsfn: . src
+Message-ID: <200605130955.k4D9ti9G021904@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-05-13 11:55:43 +0200 (Sat, 13 May 2006)
+New Revision: 49
+
+Modified:
+   trunk/fsfn/
+   trunk/fsfn/src/
+Log:
+Updated ignore property
+
+
+
+Property changes on: trunk/fsfn
+___________________________________________________________________
+Name: svn:ignore
+   + *.cache
+config.log
+config.h
+Makefile
+config.status
+stamp-h*
+
+
+
+Property changes on: trunk/fsfn/src
+___________________________________________________________________
+Name: svn:ignore
+   + *.cache
+fsfn.1
+fsfn.5
+fsfn
+Makefile
+.*
+
+
+
+
+From muaddib at berlios.de  Tue May 23 20:05:22 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Tue, 23 May 2006 20:05:22 +0200
+Subject: [Fsfn-svn] r50 - trunk/sony_acpi
+Message-ID: <200605231805.k4NI5Mgo026879@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-05-23 20:05:17 +0200 (Tue, 23 May 2006)
+New Revision: 50
+
+Modified:
+   trunk/sony_acpi/sony_acpi.c
+Log:
+Applied patch from Bjorn Helgaas
+
+
+Modified: trunk/sony_acpi/sony_acpi.c
+===================================================================
+--- trunk/sony_acpi/sony_acpi.c	2006-05-13 09:55:43 UTC (rev 49)
++++ trunk/sony_acpi/sony_acpi.c	2006-05-23 18:05:17 UTC (rev 50)
+@@ -263,7 +263,7 @@
+ 	return AE_OK;
+ }
+ 
+-static int __init sony_acpi_add(struct acpi_device *device)
++static int sony_acpi_add(struct acpi_device *device)
+ {
+ 	acpi_status status;
+ 	int result;
+@@ -345,7 +345,7 @@
+ }
+ 
+ 
+-static int __exit sony_acpi_remove(struct acpi_device *device, int type)
++static int sony_acpi_remove(struct acpi_device *device, int type)
+ {
+ 	acpi_status status;
+ 	struct sony_acpi_value *item;
+
+
+
+From muaddib at berlios.de  Tue May 23 20:15:14 2006
+From: muaddib at berlios.de (muaddib at BerliOS)
+Date: Tue, 23 May 2006 20:15:14 +0200
+Subject: [Fsfn-svn] r51 - in trunk: . fsfn fsfn/src
+Message-ID: <200605231815.k4NIFEsM030697@sheep.berlios.de>
+
+Author: muaddib
+Date: 2006-05-23 20:15:12 +0200 (Tue, 23 May 2006)
+New Revision: 51
+
+Modified:
+   trunk/
+   trunk/fsfn/
+   trunk/fsfn/src/
+Log:
+Updated svn:ignore property
+
+
+
+Property changes on: trunk
+___________________________________________________________________
+Name: svn:ignore
+   + *.cache
+
+
+
+Property changes on: trunk/fsfn
+___________________________________________________________________
+Name: svn:ignore
+   - *.cache
+config.log
+config.h
+Makefile
+config.status
+stamp-h*
+
+   + *.cache
+config.log
+config.h
+Makefile
+config.status
+stamp-h*
+TAGS
+
+
+
+Property changes on: trunk/fsfn/src
+___________________________________________________________________
+Name: svn:ignore
+   - *.cache
+fsfn.1
+fsfn.5
+fsfn
+Makefile
+.*
+
+   + *.cache
+fsfn.1
+fsfn.5
+fsfn
+Makefile
+.*
+TAGS
+
+
+
+
